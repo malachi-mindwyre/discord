@@ -1,0 +1,17 @@
+[Unit]
+Description=The Circle - Keeper Bot
+After=network.target
+
+[Service]
+Type=simple
+User=pi5
+WorkingDirectory=/home/pi5/discord
+ExecStart=/home/pi5/discord/.venv/bin/python bot.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
