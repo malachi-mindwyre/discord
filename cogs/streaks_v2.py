@@ -195,8 +195,30 @@ class StreaksV2(commands.Cog):
         async with aiosqlite.connect(DB_PATH) as db:
             await _ensure_tables(db)
         self._tables_ready = True
+        # Restore social reply cache from DB
+        await self._restore_social_cache()
         self.daily_paired_check.start()
-        logger.info("StreaksV2 cog loaded — tables ensured, paired check started")
+        logger.info("StreaksV2 cog loaded — tables ensured, cache restored, paired check started")
+
+    async def _restore_social_cache(self):
+        """Load today's social streak cache from DB (survives restarts)."""
+        today = date.today().isoformat()
+        if not hasattr(self.bot, "_social_reply_cache"):
+            self.bot._social_reply_cache = {}
+        try:
+            async with aiosqlite.connect(DB_PATH) as db:
+                cursor = await db.execute(
+                    "SELECT user_id, replied_to_id FROM social_streak_cache WHERE cache_date = ?",
+                    (today,),
+                )
+                for row in await cursor.fetchall():
+                    cache_key = f"social_replies:{row[0]}:{today}"
+                    targets = self.bot._social_reply_cache.get(cache_key, set())
+                    targets.add(row[1])
+                    self.bot._social_reply_cache[cache_key] = targets
+            logger.info("Restored social streak cache for %d entries", len(self.bot._social_reply_cache))
+        except Exception:
+            logger.warning("Failed to restore social streak cache from DB")
 
     async def cog_unload(self):
         self.daily_paired_check.cancel()
@@ -408,6 +430,17 @@ class StreaksV2(commands.Cog):
         targets.add(replied_to_id)
         self.bot._social_reply_cache[cache_key] = targets
 
+        # Persist to DB for restart recovery
+        try:
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "INSERT OR IGNORE INTO social_streak_cache (user_id, replied_to_id, cache_date) VALUES (?, ?, ?)",
+                    (user_id, replied_to_id, today),
+                )
+                await db.commit()
+        except Exception:
+            logger.debug("Failed to persist social streak cache for %s", user_id)
+
         if len(targets) >= 3:
             return await self.update_streak_type(user_id, "social")
         return None
@@ -440,6 +473,17 @@ class StreaksV2(commands.Cog):
                 stale_keys = [k for k in self.bot._social_reply_cache if not k.endswith(today_str)]
                 for k in stale_keys:
                     del self.bot._social_reply_cache[k]
+
+            # Clean up DB cache entries from previous days
+            try:
+                async with aiosqlite.connect(DB_PATH) as db:
+                    await db.execute(
+                        "DELETE FROM social_streak_cache WHERE cache_date < ?",
+                        (today.isoformat(),),
+                    )
+                    await db.commit()
+            except Exception:
+                logger.debug("Failed to clean social streak cache DB")
 
             # Weekly streak check on Monday (checks the previous week)
             if today.weekday() == 0:
@@ -621,7 +665,7 @@ class StreaksV2(commands.Cog):
 
     # ─── Commands ────────────────────────────────────────────────────────
 
-    @commands.command(name="allstreaks")
+    @commands.command(name="streak", aliases=["allstreaks"])
     async def streak_cmd(self, ctx: commands.Context):
         """Show all your active streaks in a single embed."""
         user_id = ctx.author.id
@@ -684,7 +728,7 @@ class StreaksV2(commands.Cog):
         embed.set_thumbnail(url=ctx.author.display_avatar.url)
         await ctx.send(embed=embed)
 
-    @commands.command(name="streakboard")
+    @commands.command(name="streaks", aliases=["streakboard"])
     async def streaks_leaderboard(self, ctx: commands.Context):
         """Show streak leaderboard grouped by division."""
         async with aiosqlite.connect(DB_PATH) as db:

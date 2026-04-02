@@ -18,6 +18,9 @@ from config import (
     ECONOMY_CURRENCY_NAME,
     ECONOMY_CURRENCY_EMOJI,
     EXCLUDED_CHANNELS,
+    GIVE_MIN,
+    GIVE_MAX_DAILY,
+    GIVE_TAX_RATE,
 )
 from database import DB_PATH
 
@@ -117,6 +120,73 @@ class Economy(commands.Cog):
         embed = discord.Embed(
             title=f"{ECONOMY_CURRENCY_EMOJI} RICHEST IN THE CIRCLE",
             description="\n".join(lines),
+            color=EMBED_COLOR_ACCENT,
+        )
+        await ctx.send(embed=embed)
+
+
+    @commands.command(name="give", aliases=["transfer", "send"])
+    async def give_cmd(self, ctx: commands.Context, target: discord.Member = None, amount: int = 0):
+        """Give coins to another member. 10% tax applies."""
+        if not target or target.bot or target.id == ctx.author.id:
+            await ctx.send(f"⚫ Usage: `!give @user <amount>` (min {GIVE_MIN}, max {GIVE_MAX_DAILY}/day, 10% tax)")
+            return
+
+        if amount < GIVE_MIN:
+            await ctx.send(f"⚫ Minimum transfer is **{GIVE_MIN}** {ECONOMY_CURRENCY_EMOJI}.")
+            return
+
+        # Check daily limit
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        async with aiosqlite.connect(DB_PATH) as db:
+            cursor = await db.execute(
+                "SELECT COALESCE(SUM(amount), 0) FROM coin_transfers WHERE sender_id = ? AND transferred_at LIKE ?",
+                (ctx.author.id, f"{today}%"),
+            )
+            row = await cursor.fetchone()
+            today_total = row[0] if row else 0
+
+        if today_total + amount > GIVE_MAX_DAILY:
+            remaining = GIVE_MAX_DAILY - today_total
+            await ctx.send(
+                f"⚫ Daily transfer limit is **{GIVE_MAX_DAILY}** {ECONOMY_CURRENCY_EMOJI}. "
+                f"You can still give **{max(0, remaining)}** today."
+            )
+            return
+
+        # Calculate tax
+        tax = max(1, int(amount * GIVE_TAX_RATE))
+        net = amount - tax
+
+        # Deduct from sender
+        success = await self._spend_coins(ctx.author.id, amount)
+        if not success:
+            balance = await self.get_balance(ctx.author.id)
+            await ctx.send(
+                f"⚫ Not enough coins. You have **{balance:,}** {ECONOMY_CURRENCY_EMOJI}, "
+                f"need **{amount:,}**."
+            )
+            return
+
+        # Credit to receiver
+        await self._add_coins(target.id, net)
+
+        # Log transfer
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
+                "INSERT INTO coin_transfers (sender_id, receiver_id, amount, tax, transferred_at) VALUES (?, ?, ?, ?, ?)",
+                (ctx.author.id, target.id, amount, tax, datetime.utcnow().isoformat()),
+            )
+            await db.commit()
+
+        embed = discord.Embed(
+            title=f"{ECONOMY_CURRENCY_EMOJI} TRANSFER COMPLETE",
+            description=(
+                f"{ctx.author.mention} → {target.mention}\n\n"
+                f"💰 Sent: **{amount:,}** {ECONOMY_CURRENCY_EMOJI}\n"
+                f"📉 Tax (10%): **{tax:,}** {ECONOMY_CURRENCY_EMOJI}\n"
+                f"✅ Received: **{net:,}** {ECONOMY_CURRENCY_EMOJI}"
+            ),
             color=EMBED_COLOR_ACCENT,
         )
         await ctx.send(embed=embed)

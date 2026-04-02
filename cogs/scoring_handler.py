@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Tuple, Set
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from config import (
     EXCLUDED_CHANNELS,
@@ -77,13 +77,25 @@ class ScoringHandler(commands.Cog):
         self._recent_messages: dict[int, list[float]] = {}
         self._spam_paused_until: dict[int, float] = {}
         self._last_message_content: dict[int, tuple[str, float]] = {}
-        # Bonus drops: user_id -> multiplier (for next message)
-        self._pending_bonus_drops: dict[int, float] = {}
+        # Bonus drops: user_id -> (multiplier, timestamp) for next message
+        self._pending_bonus_drops: dict[int, tuple[float, float]] = {}
         # Welcome Wagon: track which new member first-messages have been replied to
         # Maps new_member_user_id -> set of replier_user_ids who got the bonus
         self._welcome_wagon_replies: dict[int, set[int]] = {}
         # Conversation starter: track message_id -> (author_id, reply_count, bonus_awarded)
         self._conversation_starters: dict[int, list] = {}  # msg_id -> [author_id, reply_count, awarded, timestamp]
+        self._cleanup_bonus_drops.start()
+
+    def cog_unload(self):
+        self._cleanup_bonus_drops.cancel()
+
+    @tasks.loop(minutes=30)
+    async def _cleanup_bonus_drops(self):
+        """Remove bonus drops older than 1 hour (prevents memory leak)."""
+        now = time.time()
+        stale = [uid for uid, (_, ts) in self._pending_bonus_drops.items() if now - ts > 3600]
+        for uid in stale:
+            del self._pending_bonus_drops[uid]
 
     def _check_cooldown(self, user_id: int) -> bool:
         """Returns True if the user is on cooldown (should NOT be scored)."""
@@ -128,7 +140,7 @@ class ScoringHandler(commands.Cog):
         for max_days, mult in sorted(COMEBACK_BONUS_TIERS.items()):
             if days_inactive <= max_days:
                 return mult
-        return 2.0  # fallback for very long absence
+        return 1.5  # fallback for very long absence
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -230,7 +242,7 @@ class ScoringHandler(commands.Cog):
                 current_combo = combo_state["combo_count"]
 
         # Streak multiplier
-        from cogs.streaks import get_streak_multiplier
+        from cogs.streaks_v2 import get_streak_multiplier
         streak_data = await get_streak(user_id)
         streak_mult = get_streak_multiplier(streak_data["current_streak"])
 
@@ -312,7 +324,8 @@ class ScoringHandler(commands.Cog):
 
         # ── Apply bonus drop multiplier (if pending) ─────────────────
 
-        bonus_mult = self._pending_bonus_drops.pop(user_id, None)
+        bonus_entry = self._pending_bonus_drops.pop(user_id, None)
+        bonus_mult = bonus_entry[0] if bonus_entry else None
         if bonus_mult and bonus_mult > 1.0:
             final_points *= bonus_mult
             try:
@@ -500,7 +513,7 @@ class ScoringHandler(commands.Cog):
                 if roll <= cumulative:
                     chosen_mult = mult
                     break
-            self._pending_bonus_drops[user_id] = chosen_mult
+            self._pending_bonus_drops[user_id] = (chosen_mult, time.time())
             try:
                 await message.author.send(
                     f"🔮 **Your next message is blessed.** Make it count."

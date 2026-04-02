@@ -1,7 +1,7 @@
 # The Circle — Discord Bot Project
 
 ## What This Is
-A custom Discord bot called **"Keeper"** for a social server called **"The Circle"**. Built in Python (discord.py) with SQLite, deployed on a Raspberry Pi 5. Keeper is a scientifically-designed engagement machine with a 6-layer scoring engine, 100-tier rank progression, 48 feature cogs, variable reward psychology, social graph engineering, seasonal battle passes, and multi-dimensional anti-churn systems. ~18,000 lines of code.
+A custom Discord bot called **"Keeper"** for a social server called **"The Circle"**. Built in Python (discord.py) with SQLite, deployed on a Raspberry Pi 5. Keeper is a scientifically-designed engagement machine with a 6-layer scoring engine, 100-tier rank progression, 49 feature cogs, variable reward psychology, social graph engineering, seasonal battle passes, and multi-dimensional anti-churn systems. ~19,000 lines of code.
 
 **Target audience:** Mixed 18-35 demographic. Dark luxury branding. Gamified social community.
 
@@ -33,7 +33,7 @@ A custom Discord bot called **"Keeper"** for a social server called **"The Circl
 - **Database:** SQLite via aiosqlite (file: `circle.db`)
 - **Hosting:** Raspberry Pi 5
 - **Bot Token:** stored in `.env` (not committed)
-- **Total Cogs:** 48 (all loaded successfully)
+- **Total Cogs:** 49 (48 active — streaks.py disabled, replaced by streaks_v2)
 - **Total DB Tables:** ~50
 
 ## Raspberry Pi Access
@@ -125,7 +125,7 @@ final_score = BASE * SOCIAL * TEMPORAL * ENGAGEMENT * META
 - Combo: consecutive social msgs within 10 min = +10% per stack (max +50%)
 
 ### Layer 5: META (Comeback + Streak + Catch-up + Faction + Prestige)
-- Comeback: 3x (7-29d inactive), 5x (30-59d), 3x (60+d) + welcome-back coin gift
+- Comeback: 5x (7-14d — reward fast returns!), 3x (15-29d), 2x (30-59d), 1.5x (60+d) + welcome-back coin gift
 - Streak: 1.1x (3d) to 4.0x (365d)
 - Catch-up: Rookie/Regular +40%, Certified/Respected +20%, Veteran/OG +10%
 - Faction winner: 1.1x
@@ -215,7 +215,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 ### Phase 1: Core (14 cogs)
 | Cog | File | Purpose |
 |---|---|---|
-| Streaks | `cogs/streaks.py` | Original daily streak tracking (legacy, coexists with v2) |
+| ~~Streaks~~ | `cogs/streaks.py` | **DISABLED** — Superseded by `streaks_v2.py`. Commands renamed: `!streak` → v2, `!streaks` → v2. |
 | Achievements | `cogs/achievements.py` | 30+ one-time badge unlocks |
 | Scoring Handler | `cogs/scoring_handler.py` | **6-layer scoring engine**, anti-spam, rank-ups, critical hits, bonus drops, 2x XP window integration, active boost integration, season XP, variable rewards delegation, **first-message instant feedback**, parent_message_id tracking |
 | Leaderboard | `cogs/leaderboard.py` | Auto-updating hourly embed + !rank, !top, !stats |
@@ -246,7 +246,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Trivia | `cogs/trivia.py` | Tuesday auto-trivia, 20 questions |
 | Server Goals | `cogs/server_goals.py` | Member milestones + weekly message targets |
 | Profiles | `cogs/profiles.py` | Custom bio, color, banner via !profile |
-| Factions | `cogs/factions.py` | 4 teams, unlock at rank 31, weekly competition |
+| Factions | `cogs/factions.py` | 4 teams, unlock at rank 21 (lowered from 31), weekly competition |
 | ~~Smart DM~~ | `cogs/smart_dm.py` | **DISABLED** — Superseded by `reengagement.py`. No longer loaded. |
 | Buddy System | `cogs/buddy_system.py` | Mentor pairing, 10-msg goal in 48h |
 | Daily Rewards | `cogs/daily_rewards.py` | Escalating login rewards, streak reset on miss |
@@ -272,6 +272,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Metrics | `cogs/metrics.py` | Retention analytics dashboard — DAU/MAU, D1/D7/D30 cohort retention, churn rate, **onboarding funnel tracking** (joined→welcomed→messaged→graduated). Daily snapshots to `metrics_daily` table. `!metrics` admin command |
 | Mega Events | `cogs/mega_events.py` | **Monthly mega events**: The Purge (no DR, 1.5x), Circle Games (2x social, 3x Quick Fire), Community Build (3x invites). One per month, 3-7 days. `active_event_multiplier` property for scoring. |
 | Time Capsules | `cogs/time_capsules.py` | `!timecapsule <message>` sealed for 90 days, then revealed via DM + #general announcement. Max 3 per user. `!capsules` to view active capsules. |
+| Keeper Personality | `cogs/keeper_personality.py` | **Ambient Keeper messages** 2-4x/day in #general. Contextual reactions to recent messages, cryptic observations, streak reminders. Makes bot feel alive at small scale. |
 
 ---
 
@@ -284,12 +285,12 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!top` | leaderboard | Top 10 leaderboard |
 | `!stats @user` | leaderboard | View someone's stats |
 | `!profile` | profiles | Full profile with bio, badges, faction, stats |
-| `!streak` | streaks | Daily streak info |
-| `!allstreaks` | streaks_v2 | All 5 streak types in one embed |
-| `!streakboard` | streaks_v2 | Streak leaderboard by division |
+| `!streak` | streaks_v2 | All 5 streak types in one embed (alias: `!allstreaks`) |
+| `!streaks` | streaks_v2 | Streak leaderboard by division (alias: `!streakboard`) |
 | `!badges` | achievements | View your achievement badges |
 | `!daily` | daily_rewards | Claim daily login reward |
 | `!spin` | daily_wheel | Daily wheel spin (animated) |
+| `!give @user <amt>` | economy | Send Circles to another user (10% tax, 500/day max) |
 | `!balance` | economy | Check your Circles |
 | `!shop` | shop | Browse items |
 | `!buy <item>` | shop | Purchase an item |
@@ -375,9 +376,10 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 ## DM COORDINATOR (Cross-Cog Rate Limiter)
 
 All DM-sending cogs check `dm_coordinator.py` before sending:
-- **Max 1 DM per 12 hours** from any cog
-- **Max 3 DMs per 7 days** total across all cogs
-- Wired into: `onboarding_v2`, `reengagement`, `loss_aversion`
+- **Max 1 DM per 12 hours** from any cog (skipped for priority callers)
+- **Max 3 DMs per 7 days** total across all cogs (5 for priority callers)
+- **Priority mode:** `can_dm(user_id, cog, priority=True)` — used by `reengagement.py` to ensure anti-churn DMs aren't blocked
+- Wired into: `onboarding_v2`, `reengagement` (priority), `loss_aversion`
 - Welcome DM (T+5s) bypasses the coordinator — always goes through
 - Auto-cleans entries older than 30 days
 
@@ -439,7 +441,7 @@ Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM -> Day 14 D
 ## FACTION SYSTEM
 
 4 teams: Inferno (red), Frost (blue), Venom (green), Volt (yellow)
-- Unlock at rank 31 (Respected I), permanent choice
+- Unlock at rank 21 (Certified I, lowered from 31), permanent choice
 - Weekly competition with 10% winner bonus
 - Team channels, treasury system, loyalty scores
 - Traitor mechanic: 1000 Circles to switch, public "BETRAYAL" announcement
@@ -479,6 +481,8 @@ Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM -> Day 14 D
 **Audit Fix:** metrics_daily, oracle_log, connection_quests, quick_fire_log, quick_fire_replies, confession_reports
 
 **Audit Fix 2:** dm_coordinator, mega_events, time_capsules
+
+**Audit Fix 4 (2026-04-02):** social_streak_cache, coin_transfers
 
 ---
 
@@ -539,7 +543,8 @@ discord/
 │   ├── voice_xp.py
 │   ├── mega_events.py      -- NEW: Monthly mega events (The Purge, etc.)
 │   ├── time_capsules.py    -- NEW: !timecapsule sealed 90 days
-│   ├── weekly_recap.py
+│   ├── keeper_personality.py -- NEW: Ambient Keeper personality messages
+│   ├── weekly_recap.py     -- UPDATED: Personal highlight DMs
 │   └── welcome.py
 ├── dm_coordinator.py   -- NEW: Cross-cog DM rate limiter (1/12h, 3/7d)
 ├── deploy/             -- circle-bot.service (systemd)
@@ -582,7 +587,7 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 
 ## KNOWN ISSUES / FUTURE WORK
 
-1. **Legacy cog overlap:** `streaks.py` + `streaks_v2.py` coexist (v2 commands renamed to `!allstreaks`/`!streakboard`). Eventually remove old `streaks.py` and rename v2 commands back.
+1. ~~**Legacy cog overlap:**~~ **FIXED** — `streaks.py` disabled, `streaks_v2.py` commands renamed to `!streak`/`!streaks` (old names kept as aliases).
 2. ~~**Legacy DM overlap:**~~ **FIXED** — `smart_dm.py` disabled, `reengagement.py` is the sole pipeline. Onboarding/re-engagement pipelines deduplicated.
 3. **Factions warfare 2.0:** The plan includes territory control, treasury, loyalty, traitor mechanics. The current `factions.py` is basic. The config constants exist in `config.py` (FACTION_WAR_CHALLENGE_CYCLE, FACTION_TERRITORY_BONUS, etc.) but the cog hasn't been rewritten yet.
 4. ~~**Enhanced weekly recap:**~~ **BUILT** — `weekly_recap.py` now posts a multi-embed "Sunday Ceremony" with stats overview, streak hall (daily + paired), social bonds (best friend pair + voice hours), and faction standings (conditional).
@@ -612,6 +617,24 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 - ~~**Icebreaker quest orphans:**~~ **FIXED** — Expired quests cleaned in matchmaking loop.
 - ~~**Dead zone off-by-one:**~~ **FIXED** — Peak hours now correctly include 03:00 UTC.
 - ~~**Challenge completion early return:**~~ **FIXED** — Multiple challenges can now complete per action.
+
+**Audit Fix 4 (2026-04-02) — 16 improvements across 18 files:**
+- ~~**Comeback multiplier double-applied:**~~ **FIXED** — `scoring.py` no longer applies 5.0x (was stacking with handler's tiered multiplier). Only handler applies tiered comeback.
+- ~~**Comeback rewards long absence:**~~ **FIXED** — Inverted tiers: 5x (7-14d), 3x (15-29d), 2x (30-59d), 1.5x (60+). Fast returns rewarded most.
+- ~~**Factions locked too deep:**~~ **FIXED** — Unlock lowered from rank 31 to 21 (Certified I). Accessible in ~3-4 weeks.
+- ~~**Near-miss excludes new users:**~~ **FIXED** — Min rank lowered from 11 to 3. New users see jackpot teases.
+- ~~**DM coordinator blocks re-engagement:**~~ **FIXED** — `can_dm()` now accepts `priority=True` (skips 12h check, 5/7d cap). Re-engagement uses priority.
+- ~~**Voice AFK farming:**~~ **FIXED** — Require 2+ non-bot users in VC. 50% XP penalty if muted+deafened >10 min.
+- ~~**Legacy streaks.py overlap:**~~ **FIXED** — Disabled old cog. V2 commands renamed: `!streak`, `!streaks`. Old names kept as aliases.
+- ~~**Social streak cache lost on restart:**~~ **FIXED** — Persisted to `social_streak_cache` DB table. Restored on cog load.
+- ~~**Bonus drop memory leak:**~~ **FIXED** — Added 30-min cleanup task. Drops expire after 1 hour.
+- **NEW:** `!give @user <amount>` — Coin transfers with 10% tax, 500/day limit. New `coin_transfers` DB table.
+- **NEW:** Keeper Personality cog — 2-4 ambient messages/day in #general. Contextual + random. Cold-start essential.
+- **NEW:** Themed content days — Meme Monday, Wisdom Wednesday, Flex Friday, Social Saturday.
+- **NEW:** Personal highlight DMs — Sunday recap sends personalized stats to active users.
+- **NEW:** Event-exclusive badges — Participation badges awarded at end of mega events (Purge Survivor, Games Veteran, Community Builder).
+- **NEW:** Enhanced profiles — Display titles auto-derived from achievements. Prestige level shown.
+- **NEW:** Display title system — Config-driven title priority from event badges and milestone achievements.
 
 ---
 

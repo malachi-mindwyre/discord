@@ -962,9 +962,8 @@ class Info(commands.Cog):
         embed.add_field(
             name="🔥 STREAKS & DAILY",
             value=(
-                "🔥 `!streak` — Your daily streak\n"
-                "🔥 `!allstreaks` — All 5 streak types\n"
-                "🔥 `!streakboard` — Streak leaderboard\n"
+                "🔥 `!streak` — All 5 streak types\n"
+                "🔥 `!streaks` — Streak leaderboard\n"
                 "❄️ `!buyfreeze` — Buy streak freeze (200 🪙)\n"
                 "🔗 `!pairstreak @user` — Start a paired streak\n"
                 "📅 `!daily` — Claim daily login reward\n"
@@ -980,7 +979,8 @@ class Info(commands.Cog):
             value=(
                 "💰 `!balance` — Check your Circles\n"
                 "🏪 `!shop` — Browse the shop\n"
-                "🛒 `!buy <item>` — Buy from the shop"
+                "🛒 `!buy <item>` — Buy from the shop\n"
+                "🎁 `!give @user <amount>` — Send Circles (10% tax)"
             ),
             inline=False,
         )

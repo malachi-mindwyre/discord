@@ -432,7 +432,7 @@ class Reengagement(commands.Cog):
             if not await _can_dm(user_id):
                 continue
             # Also check global DM coordinator (cross-cog rate limiting)
-            if not await global_can_dm(user_id, "reengagement"):
+            if not await global_can_dm(user_id, "reengagement", priority=True):
                 continue
 
             embed: Optional[discord.Embed] = None

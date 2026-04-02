@@ -19,14 +19,19 @@ from config import (
     EMBED_COLOR_PRIMARY,
     EMBED_COLOR_ACCENT,
 )
+import aiosqlite
 from database import (
+    DB_PATH,
     get_weekly_stats,
     get_top_streaks,
     get_weekly_voice_minutes,
     get_weekly_best_friend_pair,
     get_weekly_achievements_count,
     get_weekly_faction_standings,
+    get_user,
+    get_streak,
 )
+from ranks import RANK_BY_TIER, get_rank_for_score
 
 logger = logging.getLogger("circle.weekly_recap")
 
@@ -219,6 +224,85 @@ class WeeklyRecap(commands.Cog):
                 await channel.send("*The Circle has spoken. See you next Sunday.* ⚫")
             except discord.HTTPException:
                 pass
+
+            # ── Personal Highlight DMs ───────────────────────────────────
+            await self._send_personal_highlights(guild)
+
+    async def _send_personal_highlights(self, guild: discord.Guild):
+        """Send personalized weekly highlight DMs to active users."""
+        week_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
+        try:
+            async with aiosqlite.connect(DB_PATH) as db:
+                db.row_factory = aiosqlite.Row
+                # Get all users active this week with their weekly points
+                cursor = await db.execute(
+                    """SELECT ds.user_id,
+                              SUM(ds.points) as week_points,
+                              COUNT(DISTINCT ds.date) as active_days,
+                              MAX(ds.points) as best_day_points,
+                              (SELECT date FROM daily_scores WHERE user_id = ds.user_id
+                               ORDER BY points DESC LIMIT 1) as best_day
+                       FROM daily_scores ds
+                       WHERE ds.date >= ?
+                       GROUP BY ds.user_id
+                       ORDER BY week_points DESC""",
+                    (week_ago[:10],),
+                )
+                active_users = await cursor.fetchall()
+
+            dm_count = 0
+            for row in active_users:
+                if dm_count >= 50:  # Safety cap
+                    break
+
+                member = guild.get_member(row["user_id"])
+                if not member or member.bot:
+                    continue
+
+                user_data = await get_user(row["user_id"])
+                if not user_data:
+                    continue
+
+                streak_data = await get_streak(row["user_id"])
+                rank = RANK_BY_TIER.get(user_data["current_rank"])
+                rank_name = rank.name if rank else "Unknown"
+
+                embed = discord.Embed(
+                    title="📊 YOUR WEEKLY HIGHLIGHTS",
+                    description="Here's how you did in The Circle this week.",
+                    color=EMBED_COLOR_ACCENT,
+                )
+                embed.add_field(
+                    name="📈 This Week",
+                    value=(
+                        f"**{row['week_points']:,.0f}** points earned\n"
+                        f"**{row['active_days']}** active days\n"
+                        f"Best day: **{row['best_day_points']:,.0f}** pts"
+                    ),
+                    inline=True,
+                )
+                embed.add_field(
+                    name="🏷️ Status",
+                    value=(
+                        f"Rank: **{rank_name}**\n"
+                        f"Score: **{user_data['total_score']:,.0f}** pts\n"
+                        f"Streak: **{streak_data['current_streak']}** days 🔥"
+                    ),
+                    inline=True,
+                )
+                embed.set_footer(text="The Circle sees your effort. Keep it up.")
+
+                try:
+                    await member.send(embed=embed)
+                    dm_count += 1
+                    await asyncio.sleep(1)  # Rate limit protection
+                except (discord.HTTPException, discord.Forbidden):
+                    pass  # DMs disabled
+
+            logger.info("Sent %d personal highlight DMs", dm_count)
+
+        except Exception as e:
+            logger.error("Failed to send personal highlights: %s", e)
 
     @post_weekly_recap.before_loop
     async def before_recap(self):

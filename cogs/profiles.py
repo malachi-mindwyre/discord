@@ -16,6 +16,7 @@ from config import (
     EMBED_COLOR_ACCENT,
     ECONOMY_CURRENCY_EMOJI,
     ACHIEVEMENTS,
+    DISPLAY_TITLES,
 )
 from database import (
     DB_PATH,
@@ -79,6 +80,26 @@ class Profiles(commands.Cog):
             )
             msg_count = (await cursor.fetchone())[0]
 
+        # Prestige level
+        prestige_level = 0
+        async with aiosqlite.connect(DB_PATH) as db2:
+            cursor2 = await db2.execute(
+                "SELECT prestige_level FROM prestige WHERE user_id = ?", (target.id,)
+            )
+            prow = await cursor2.fetchone()
+            if prow:
+                prestige_level = prow[0]
+
+        # Auto-derive display title from achievements
+        display_title = None
+        # Check in priority order (highest-value titles first)
+        title_priority = ["rank_immortal", "rank_legend", "score_100000", "streak_100",
+                          "event_purge", "event_circle_games", "event_community"]
+        for key in title_priority:
+            if key in achievements and key in DISPLAY_TITLES:
+                display_title = DISPLAY_TITLES[key]
+                break
+
         # Build embed
         embed_color = int(accent_color, 16) if accent_color else (rank.color if rank else EMBED_COLOR_PRIMARY)
         embed = discord.Embed(
@@ -86,11 +107,18 @@ class Profiles(commands.Cog):
             color=embed_color,
         )
 
-        if bio:
+        if display_title:
+            embed.description = f"{display_title['emoji']} *{display_title['title']}*"
+            if bio:
+                embed.description += f"\n\n*{bio}*"
+        elif bio:
             embed.description = f"*{bio}*"
 
         # Core stats
-        embed.add_field(name="🏷️ Rank", value=f"**{rank.name}**" if rank else "Unknown", inline=True)
+        rank_value = f"**{rank.name}**" if rank else "Unknown"
+        if prestige_level > 0:
+            rank_value += f" ✨P{prestige_level}"
+        embed.add_field(name="🏷️ Rank", value=rank_value, inline=True)
         embed.add_field(name="🏆 Score", value=f"**{user['total_score']:,.0f}** pts", inline=True)
         embed.add_field(name=f"{ECONOMY_CURRENCY_EMOJI} Coins", value=f"**{coins:,}**", inline=True)
 

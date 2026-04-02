@@ -17,14 +17,14 @@ from config import EMBED_COLOR_PRIMARY, EMBED_COLOR_ACCENT, AUTO_EVENT_HOUR
 # Weekly event definitions
 WEEKLY_EVENTS = {
     0: {  # Monday
-        "name": "💪 MOTIVATION MONDAY",
-        "channels": ["fitness", "work"],
+        "name": "😂 MEME MONDAY",
+        "channels": ["memes", "general"],
         "prompts": [
-            "What's your #1 goal this week? Drop it below and hold yourself accountable. 💪",
-            "Monday motivation: What's one thing you're grateful for right now?",
-            "New week, new grind. What are you working on? Share your goals. 🎯",
-            "Quote that keeps you going? Drop it. Motivate someone else today.",
-            "What's the hardest thing you overcame last week? Flex on it. 💪",
+            "😂 **MEME MONDAY** — New week, new memes. Post your best. Most reactions wins bragging rights. 🏆",
+            "😂 It's **Meme Monday**! Start the week right. Drop the funniest meme you've got.",
+            "😂 **MEME MONDAY** — Cure the Monday blues with memes. Best one gets crowned. 🏆",
+            "😂 **Meme Monday** is here. Post memes. Get reactions. Earn points. Simple.",
+            "😂 Your mission: post a meme that makes at least 3 people react. Go. 🏆",
         ],
     },
     1: {  # Tuesday
@@ -34,12 +34,14 @@ WEEKLY_EVENTS = {
         "announcement": "🧠 **TRIVIA TUESDAY** is starting! Head to #general for 10 trivia questions. First correct answer wins!",
     },
     2: {  # Wednesday
-        "name": "🔮 CONFESSION WEDNESDAY",
-        "channels": ["general"],
+        "name": "🧠 WISDOM WEDNESDAY",
+        "channels": ["general", "work"],
         "prompts": [
-            "🔮 It's **Confession Wednesday**. Got something on your mind? DM Keeper with `!confess <your confession>` and let it out. 100% anonymous.",
-            "🔮 **Confession Wednesday** is here. The Circle listens without judgment. DM `!confess` to Keeper.",
-            "🔮 What's your deepest confession? DM Keeper: `!confess <text>`. Nobody will know. The Circle keeps your secrets.",
+            "🧠 **WISDOM WEDNESDAY** — Best life advice you've ever received? Share it below.",
+            "🧠 **Wisdom Wednesday** — What's something you wish you knew 5 years ago?",
+            "🧠 What's the most useful skill you've taught yourself? Drop your wisdom. 🧠",
+            "🧠 **Wisdom Wednesday** — Give advice to your younger self in one sentence.",
+            "🧠 **Real talk:** What's a hard lesson you learned this year? Share it so others don't have to learn it the hard way.",
         ],
     },
     3: {  # Thursday
@@ -54,21 +56,25 @@ WEEKLY_EVENTS = {
         ],
     },
     4: {  # Friday
-        "name": "😂 MEME FRIDAY",
-        "channels": ["memes"],
+        "name": "💪 FLEX FRIDAY",
+        "channels": ["general"],
         "prompts": [
-            "😂 **MEME FRIDAY** — Post your best meme. Most reactions wins bragging rights. 🏆",
-            "😂 It's **Meme Friday**! Drop the funniest meme you've got. Winner = most reactions.",
-            "😂 **MEME COMPETITION** — Best meme posted today gets crowned. Go. 🏆",
+            "💪 **FLEX FRIDAY** — What's your biggest W this week? Brag about it. You earned it.",
+            "💪 **Flex Friday** — Show off your achievements. Rank ups, streaks, badges, real life wins. Flex.",
+            "💪 It's **Flex Friday**! Check `!profile` and flex your stats. Who's got the highest streak?",
+            "💪 **FLEX FRIDAY** — Drop your `!rank` screenshot. Let's see who's been grinding.",
+            "💪 What did you accomplish this week? In-server or IRL — this is your moment. 💪",
         ],
     },
     5: {  # Saturday
-        "name": "🎤 VC SATURDAY",
+        "name": "🎉 SOCIAL SATURDAY",
         "channels": ["general"],
         "prompts": [
-            "🎤 **VC SATURDAY** — Voice channels are open. Pull up. Talk to real humans for once.",
-            "🎤 It's **VC Saturday**. Jump in a voice channel. You earn points just for hanging out.",
-            "🎤 **VC Saturday** is live. Get in voice. Earn points. Make friends. Simple.",
+            "🎉 **SOCIAL SATURDAY** — Tag someone you haven't talked to this week. Start a conversation. 3x reply points!",
+            "🎉 It's **Social Saturday**! Jump in voice, tag a friend, or reply to someone new. Social points are boosted.",
+            "🎉 **SOCIAL SATURDAY** — The Circle rewards connections. Reply to 3 different people today for a social streak bonus.",
+            "🎉 **Social Saturday** — Who's your `!bestfriend`? Tag them. If you don't have one yet, make one today.",
+            "🎉 **Social Saturday** is live. Voice channels + reply bonuses. Get in there. 🎤",
         ],
     },
     # Sunday (6) handled by weekly_recap.py

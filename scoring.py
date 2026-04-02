@@ -175,8 +175,8 @@ def _compute_engagement(ctx: MessageContext) -> float:
 
 def _compute_meta(ctx: MessageContext) -> float:
     """Layer 5: Comeback + Streak + Catch-up + Faction + Prestige."""
-    # Comeback
-    comeback = 5.0 if ctx.is_comeback else 1.0
+    # Comeback — multiplier applied by scoring_handler post-calculation
+    comeback = 1.0
 
     # Streak (passed in pre-computed)
     streak = ctx.streak_multiplier

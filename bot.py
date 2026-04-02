@@ -32,7 +32,7 @@ bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents, help_command=None
 
 COG_EXTENSIONS = [
     # ─── Phase 1 (Core) ──────────────────────────────────
-    "cogs.streaks",
+    # "cogs.streaks",              # Superseded by streaks_v2
     "cogs.achievements",
     "cogs.scoring_handler",
     "cogs.leaderboard",
@@ -83,6 +83,7 @@ COG_EXTENSIONS = [
     "cogs.metrics",                # Retention analytics dashboard
     "cogs.mega_events",            # Monthly mega events (The Purge, Circle Games, etc.)
     "cogs.time_capsules",          # Time capsule system (!timecapsule, !capsules)
+    "cogs.keeper_personality",     # Keeper ambient personality messages
 ]
 
 

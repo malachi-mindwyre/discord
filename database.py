@@ -382,6 +382,24 @@ async def init_db():
                 PRIMARY KEY (user_a, user_b)
             );
 
+            -- Social streak cache (persists across restarts)
+            CREATE TABLE IF NOT EXISTS social_streak_cache (
+                user_id INTEGER NOT NULL,
+                replied_to_id INTEGER NOT NULL,
+                cache_date TEXT NOT NULL,
+                PRIMARY KEY (user_id, replied_to_id, cache_date)
+            );
+
+            -- Coin transfers (trading)
+            CREATE TABLE IF NOT EXISTS coin_transfers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender_id INTEGER NOT NULL,
+                receiver_id INTEGER NOT NULL,
+                amount INTEGER NOT NULL,
+                tax INTEGER NOT NULL,
+                transferred_at TEXT NOT NULL
+            );
+
             -- Circles (Friend Groups)
             CREATE TABLE IF NOT EXISTS circles (
                 circle_id INTEGER PRIMARY KEY AUTOINCREMENT,

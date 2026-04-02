@@ -26,12 +26,15 @@ async def ensure_dm_table():
         await db.commit()
 
 
-async def can_dm(user_id: int, cog_name: str) -> bool:
+async def can_dm(user_id: int, cog_name: str, priority: bool = False) -> bool:
     """Check whether we're allowed to DM this user right now.
 
     Rules:
-        - Max 1 DM per 12 hours from ANY cog
-        - Max 3 DMs per 7 days from ALL cogs combined
+        - Max 1 DM per 12 hours from ANY cog (skipped if priority=True)
+        - Max 3 DMs per 7 days from ALL cogs combined (5 if priority=True)
+
+    Priority mode is used by re-engagement to ensure critical anti-churn
+    DMs aren't blocked by routine notifications.
 
     Also cleans up entries older than 30 days.
     """
@@ -48,22 +51,24 @@ async def can_dm(user_id: int, cog_name: str) -> bool:
         )
         await db.commit()
 
-        # Check: any DM to this user in the last 12 hours?
-        cursor = await db.execute(
-            "SELECT COUNT(*) FROM dm_coordinator WHERE user_id = ? AND sent_at > ?",
-            (user_id, cutoff_12h)
-        )
-        row = await cursor.fetchone()
-        if row[0] >= 1:
-            return False
+        # Check: any DM to this user in the last 12 hours? (skipped for priority)
+        if not priority:
+            cursor = await db.execute(
+                "SELECT COUNT(*) FROM dm_coordinator WHERE user_id = ? AND sent_at > ?",
+                (user_id, cutoff_12h)
+            )
+            row = await cursor.fetchone()
+            if row[0] >= 1:
+                return False
 
-        # Check: 3 or more DMs in the last 7 days?
+        # Check: DMs in the last 7 days? (3 max normal, 5 max priority)
+        max_weekly = 5 if priority else 3
         cursor = await db.execute(
             "SELECT COUNT(*) FROM dm_coordinator WHERE user_id = ? AND sent_at > ?",
             (user_id, cutoff_7d)
         )
         row = await cursor.fetchone()
-        if row[0] >= 3:
+        if row[0] >= max_weekly:
             return False
 
     return True

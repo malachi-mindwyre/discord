@@ -323,6 +323,11 @@ ACHIEVEMENTS = {
     "faction_joined":    ("⚔️", "Faction Member",    "Join a faction"),
     "shopper":           ("🛒", "Shopper",            "Buy your first shop item"),
     "trivia_5":          ("🧠", "Trivia Buff",        "Answer 5 trivia questions correctly"),
+    # Phase 3 achievements
+    "survivor_7d":       ("🛡️", "Survivor",           "Complete 7-day onboarding"),
+    "event_purge":       ("💀", "Purge Survivor",      "Participated in The Purge"),
+    "event_circle_games":("⚔️", "Games Veteran",      "Participated in The Circle Games"),
+    "event_community":   ("🏗️", "Community Builder",   "Participated in Community Build"),
 }
 
 # ─── Economy / Shop ────────────────────────────────────────────────────────
@@ -369,7 +374,7 @@ STARBOARD_THRESHOLDS = {              # member_count -> required reactions
 }
 
 # ─── Factions ─────────────────────────────────────────────────────────────
-FACTION_UNLOCK_RANK = 31              # Respected I
+FACTION_UNLOCK_RANK = 21              # Certified I (lowered from 31 for faster social bonding)
 FACTION_TEAMS = {
     "Inferno": {"color": 0xE74C3C, "emoji": "🔴", "motto": "Burn bright."},
     "Frost":   {"color": 0x3498DB, "emoji": "🔵", "motto": "Stay cold."},
@@ -563,7 +568,7 @@ DAILY_PROMPTS = [
 # ─── Variable Rewards (Dopamine Engine) ───────────────────────────────────
 CRITICAL_HIT_CHANCE = 0.02           # 2% chance of 2x on any message
 NEAR_MISS_CHANCE = 0.01              # 1% chance of "almost" message (reduced from 3%)
-NEAR_MISS_MIN_RANK = 11              # Only Regular+ (tier 11+) see near-miss messages
+NEAR_MISS_MIN_RANK = 3               # Rookie III+ see near-miss messages (lowered for early dopamine hooks)
 BONUS_DROP_CHANCE = 0.02             # 2% chance your NEXT msg gets hidden multiplier
 BONUS_DROP_MULTIPLIERS = [           # (multiplier, weight)
     (2.0, 50),                        # 50% chance of 2x
@@ -664,9 +669,10 @@ STREAK_GRACE_MIN_LENGTH = 14         # Min streak for free grace period
 
 # Tiered Comeback Bonus
 COMEBACK_BONUS_TIERS = {             # max_days_inactive -> multiplier
-    29: 3.0,                          # 7-29 days = 3x
-    59: 5.0,                          # 30-59 days = 5x (peak urgency window)
-    9999: 3.0,                        # 60+ days = 3x (generous, up from 2x)
+    14: 5.0,                          # 7-14 days = 5x (reward fast returns!)
+    29: 3.0,                          # 15-29 days = 3x
+    59: 2.0,                          # 30-59 days = 2x
+    9999: 1.5,                        # 60+ days = 1.5x (diminished)
 }
 COMEBACK_GIFT_BASE_COINS = 50        # Base welcome-back coin gift
 COMEBACK_GIFT_PER_DAY = 2            # Extra coins per day inactive
@@ -904,4 +910,61 @@ SEASONAL_THEMES = {
     2: {"name": "The Rivalry",   "focus": "faction-wars"},
     3: {"name": "The Gathering", "focus": "social-voice"},
     4: {"name": "The Reckoning", "focus": "annual-awards"},
+}
+
+# ─── Trading / Give ──────────────────────────────────────────────────────
+GIVE_MIN = 10                         # Minimum coins per transfer
+GIVE_MAX_DAILY = 500                  # Max coins given per day per user
+GIVE_TAX_RATE = 0.10                  # 10% tax on transfers (coin sink)
+
+# ─── Voice AFK Detection ────────────────────────────────────────────────
+VOICE_MIN_PARTICIPANTS = 2            # Min non-bot users in VC to earn XP
+VOICE_AFK_PENALTY_MULT = 0.5         # 50% XP when muted+deafened
+VOICE_AFK_DETECTION_MINUTES = 10     # Minutes muted+deaf before penalty
+
+# ─── Keeper Personality ──────────────────────────────────────────────────
+KEEPER_PERSONALITY_MIN_INTERVAL = 3   # Min hours between personality messages
+KEEPER_PERSONALITY_MAX_INTERVAL = 8   # Max hours between personality messages
+KEEPER_PERSONALITY_MESSAGES = [
+    "The Circle is watching. Always.",
+    "Some of you have been too quiet. The Circle notices.",
+    "Someone in here is about to break a record. I can feel it.",
+    "Interesting conversations today. The Circle approves.",
+    "I've seen empires rise and fall in this server. Keep building.",
+    "Your streaks are your lifeline. Don't let them die.",
+    "The leaderboard shifts... someone is climbing fast.",
+    "Somewhere, a jackpot grows. Patience rewards the faithful.",
+    "The Circle remembers everything. Every message. Every silence.",
+    "A new rivalry is brewing. I can sense the tension.",
+    "To the lurkers: The Circle sees you. It's not too late to speak.",
+    "The factions grow restless. War is coming.",
+    "Some bonds in this server are stronger than you think.",
+    "Late night crew gets bonus points. Just saying.",
+    "The best conversations happen when you least expect them.",
+    "I've been watching your streaks. Some of you are on thin ice.",
+    "The economy is moving. Spend wisely... or don't.",
+    "Someone here will reach a new rank today. Will it be you?",
+    "The Circle rewards those who reply. Talk to each other.",
+    "Confession Wednesday is coming. Prepare your secrets.",
+    "Voice chat earns points too. Stop hiding behind your keyboard.",
+    "The Purge approaches... are you ready?",
+    "Fun fact: replies are worth 2.5x more than solo messages. Be social.",
+    "Your best friend might be someone you haven't talked to yet.",
+    "The Circle grows stronger with every message. Feed it.",
+    "I've seen things in this server that would make you question reality.",
+    "The battle pass won't complete itself. Get grinding.",
+    "Some of you treat this like a job. I respect the dedication.",
+    "A mystery drop is always 100 messages away. Keep posting.",
+    "The Circle has existed for eons. You are but a chapter in its story.",
+]
+
+# ─── Display Titles (auto-derived from achievements) ────────────────────
+DISPLAY_TITLES = {
+    "event_purge":        {"emoji": "💀", "title": "Purge Survivor"},
+    "event_circle_games": {"emoji": "⚔️", "title": "Games Veteran"},
+    "event_community":    {"emoji": "🏗️", "title": "Community Builder"},
+    "streak_100":         {"emoji": "💀", "title": "Streak Legend"},
+    "rank_immortal":      {"emoji": "⚪", "title": "Immortal"},
+    "rank_legend":        {"emoji": "🟡", "title": "Living Legend"},
+    "score_100000":       {"emoji": "📈", "title": "The Obsessed"},
 }

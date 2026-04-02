@@ -263,6 +263,45 @@ class MegaEvents(commands.Cog):
         except discord.Forbidden:
             logger.warning("Missing permissions to announce mega event in #general.")
 
+    async def _award_event_badges(self, event_row: dict) -> int:
+        """Award participation badges to users active during the event."""
+        badge_map = {
+            "The Purge":        "event_purge",
+            "The Circle Games": "event_circle_games",
+            "Community Build":  "event_community",
+        }
+        badge_key = badge_map.get(event_row["event_name"])
+        if not badge_key:
+            return 0
+
+        started_at = event_row["started_at"]
+        ends_at = event_row["ends_at"]
+        awarded = 0
+
+        try:
+            async with aiosqlite.connect(DB_PATH) as db:
+                # Find users who sent messages during the event window
+                cursor = await db.execute(
+                    """SELECT DISTINCT user_id FROM messages
+                       WHERE timestamp >= ? AND timestamp <= ?""",
+                    (started_at, ends_at),
+                )
+                participants = [row[0] for row in await cursor.fetchall()]
+
+                for user_id in participants:
+                    await db.execute(
+                        """INSERT OR IGNORE INTO achievements (user_id, achievement_key, unlocked_at)
+                           VALUES (?, ?, ?)""",
+                        (user_id, badge_key, datetime.utcnow().isoformat()),
+                    )
+                await db.commit()
+                awarded = len(participants)
+        except Exception as e:
+            logger.error("Failed to award event badges: %s", e)
+
+        logger.info("Awarded '%s' badge to %d participants", badge_key, awarded)
+        return awarded
+
     async def _post_end_announcement(self, event_row: dict) -> None:
         channel = self._find_general_channel()
         if not channel:
@@ -277,6 +316,9 @@ class MegaEvents(commands.Cog):
         ended = datetime.fromisoformat(event_row["ends_at"])
         duration_hours = int((ended - started).total_seconds() // 3600)
 
+        # Award participation badges
+        badge_count = await self._award_event_badges(event_row)
+
         embed = discord.Embed(
             title=f"{emoji}  {event_name.upper()} -- CONCLUDED  {emoji}",
             description=(
@@ -285,6 +327,7 @@ class MegaEvents(commands.Cog):
                 f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"The event ran for **{duration_hours}** hours with a "
                 f"**{event_row['server_multiplier']}x** server multiplier.\n\n"
+                f"🏅 **{badge_count}** participants earned an exclusive event badge.\n\n"
                 f"Normal rules have been restored. Until next time."
             ),
             color=EMBED_COLOR_ACCENT,
