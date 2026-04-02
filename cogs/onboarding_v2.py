@@ -177,12 +177,18 @@ class OnboardingV2(commands.Cog):
         if member.bot:
             return
 
-        # Dedup: Discord can fire on_member_join multiple times
+        # Dedup layer 1: in-memory set (catches rapid Discord re-fires)
         if member.id in self._welcomed_members:
             return
         self._welcomed_members.add(member.id)
         if len(self._welcomed_members) > 100:
             self._welcomed_members = set(list(self._welcomed_members)[-50:])
+
+        # Dedup layer 2: DB check (catches re-fires across bot restarts)
+        existing = await get_onboarding_state(member.id)
+        if existing:
+            logger.info("Skipping welcome for %s (%s) — onboarding state already exists", member, member.id)
+            return
 
         await get_or_create_user(member.id, str(member))
         await create_onboarding_state(member.id)
