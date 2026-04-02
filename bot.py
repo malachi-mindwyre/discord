@@ -37,7 +37,7 @@ COG_EXTENSIONS = [
     "cogs.scoring_handler",
     "cogs.leaderboard",
     "cogs.media_feed",
-    "cogs.welcome",
+    # "cogs.welcome",                # Superseded by onboarding_v2 (which handles welcome + DM + role)
     "cogs.invites",
     "cogs.comeback",
     "cogs.reactions",

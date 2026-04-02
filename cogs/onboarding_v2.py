@@ -180,6 +180,39 @@ class OnboardingV2(commands.Cog):
         await create_onboarding_state(member.id)
         logger.info("Onboarding state created for %s (%s)", member, member.id)
 
+        # Assign starting rank role (Rookie I)
+        from ranks import RANK_BY_TIER
+        starting_rank = RANK_BY_TIER.get(1)
+        if starting_rank:
+            role = discord.utils.get(member.guild.roles, name=starting_rank.name)
+            if role:
+                try:
+                    await member.add_roles(role, reason="New member — Rookie I")
+                except discord.HTTPException:
+                    pass
+
+        # Post public welcome in #welcome channel
+        welcome_ch = discord.utils.get(member.guild.text_channels, name="welcome")
+        if welcome_ch:
+            embed = discord.Embed(
+                title="⚫ ANOTHER SOUL ENTERS THE CIRCLE",
+                description=(
+                    f"Welcome, {member.mention}. Your journey begins now.\n\n"
+                    f"You enter as **Rookie I** — but that can change.\n"
+                    f"The Circle rewards those who speak, share, reply, and connect.\n\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"Type `!rank` to see where you stand.\n"
+                    f"The Circle watches. 👁️"
+                ),
+                color=EMBED_COLOR_PRIMARY,
+            )
+            embed.set_thumbnail(url=member.display_avatar.url)
+            embed.set_footer(text="The Circle • Your rank is your legacy")
+            try:
+                await welcome_ch.send(embed=embed)
+            except discord.HTTPException:
+                pass
+
         # Send the T+5s welcome DM immediately (don't wait for the loop)
         guild = member.guild
         state = await get_onboarding_state(member.id)
