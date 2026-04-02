@@ -672,6 +672,7 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 - **CRITICAL LESSON:** NEVER run `python bot.py` locally while the Pi instance is running. Multiple instances with the same token will ALL receive and respond to every Discord event, causing duplicate messages, duplicate scoring, and duplicate DB writes. The Pi is the ONLY production instance.
 - **Debugging approach that worked:** Decoded Discord message snowflake IDs to timestamps, fetched message content via Discord REST API to compare embeds, checked `ps aux` on both Mac and Pi to find rogue processes.
 - **Dedup layers now in onboarding_v2:** (1) In-memory set for rapid Discord re-fires, (2) DB check via `get_onboarding_state()` for cross-restart persistence.
+- ~~**Healthcheck false warning:**~~ **FIXED** — Removed disabled cogs (Streaks, Welcome, Onboarding) from expected list. Added missing Phase 3 cogs (MegaEvents, TimeCapsules, KeeperPersonality). Now 23/23 green.
 
 ---
 
