@@ -49,6 +49,11 @@ class Info(commands.Cog):
             self._build_profiles_embed(),
             self._build_events_embed(),
             self._build_buddy_embed(),
+            # Phase 3 features
+            self._build_variable_rewards_embed(),
+            self._build_social_graph_embed(),
+            self._build_season_pass_embed(),
+            self._build_prestige_embed(),
             self._build_commands_embed(),
         ]
 
@@ -95,8 +100,8 @@ class Info(commands.Cog):
             name="📝 BASIC POINTS",
             value=(
                 "Every message = **1 point** base\n"
-                "Longer messages earn more — **+0.2 pts per word**\n\n"
-                "*Example: A 50-word message = 1 + 10 = **11 pts***"
+                "Longer messages earn more — **+0.15 pts per word**\n\n"
+                "*Example: A 50-word message = 1 + 7.5 = **8.5 pts***"
             ),
             inline=False,
         )
@@ -110,30 +115,28 @@ class Info(commands.Cog):
             inline=False,
         )
         embed.add_field(
-            name="↩️ REPLY BOOST — 3x MULTIPLIER",
+            name="↩️ REPLY BOOST — 2.5x MULTIPLIER",
             value=(
                 "When you **reply to someone's message**, "
-                "your entire score for that message gets **tripled**.\n\n"
+                "your entire score gets **multiplied by 2.5x**.\n\n"
                 "*This is HUGE. Conversations > monologues.*"
             ),
             inline=False,
         )
         embed.add_field(
-            name="🏷️ TAG BOOST — 4x MULTIPLIER",
+            name="🏷️ TAG BOOST — 2x MULTIPLIER",
             value=(
                 "When you **@mention someone**, "
-                "your score gets **quadrupled**.\n\n"
+                "your score gets **doubled**.\n\n"
                 "*Tag people! Pull them into the conversation!*"
             ),
             inline=False,
         )
         embed.add_field(
-            name="🔥 MULTIPLIERS STACK",
+            name="🔥 REPLY + TAG SYNERGY — 6x",
             value=(
-                "Reply + Tag + Media + Long message?\n"
-                "The multipliers **stack on top of each other.**\n\n"
-                "Example: 50-word reply with a pic + @tag\n"
-                "→ (1 + 10 + 5) × 3 × 4 = **192 points** from one message!\n\n"
+                "Reply AND tag someone in the same message?\n"
+                "That's a **6x multiplier**. The ultimate combo.\n\n"
                 "━━━━━━━━━━━━━━━━━━━━━"
             ),
             inline=False,
@@ -142,8 +145,9 @@ class Info(commands.Cog):
             name="⏱️ LIMITS",
             value=(
                 "• **15 second** cooldown between scored messages\n"
-                "• **1,000 point** daily cap (resets at midnight)\n"
-                "• Spamming the same message = no points\n\n"
+                "• **500-1500 point** daily cap (scales with your rank)\n"
+                "• Spamming the same message = no points\n"
+                "• Diminishing returns after 15 messages/day\n\n"
                 "*Quality over quantity — but quantity helps too 😏*"
             ),
             inline=False,
@@ -153,25 +157,49 @@ class Info(commands.Cog):
 
     def _build_streaks_embed(self) -> discord.Embed:
         embed = discord.Embed(
-            title="🔥 DAILY STREAKS",
+            title="🔥 STREAKS",
             description=(
-                "Log in and send a message **every day** to build your streak.\n"
-                "The longer your streak, the bigger your score bonus.\n\n"
-                "━━━━━━━━━━━━━━━━━━━━━\n\n"
-                "**STREAK BONUSES:**\n"
-                "🔥 **3 days** → +10% on all points\n"
-                "🔥 **7 days** → +25% on all points\n"
-                "🔥 **14 days** → +50% on all points\n"
-                "🔥 **30 days** → +100% (DOUBLE points!)\n"
-                "🔥 **60 days** → +150% on all points\n"
-                "💀 **100 days** → +200% (TRIPLE points!)\n\n"
-                "**Miss a day? Your streak resets to zero.**\n\n"
-                "Use `!streak` to check your current streak.\n"
-                "Use `!streaks` to see who has the longest streak."
+                "The Circle tracks **5 types of streaks**. "
+                "The longer you go, the bigger the bonus.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━"
             ),
             color=EMBED_COLOR_ACCENT,
         )
-        embed.set_footer(text="The grind never stops. Neither should you.")
+        embed.add_field(
+            name="📅 DAILY STREAK — Point Bonus",
+            value=(
+                "Send at least 1 message per day.\n"
+                "🔥 **3 days** → +10%\n"
+                "🔥 **7 days** → +25%\n"
+                "🔥 **14 days** → +50%\n"
+                "🔥 **30 days** → +100% (2x everything!)\n"
+                "🔥 **100 days** → +200% (3x!)\n"
+                "🔥 **365 days** → +300% (4x!)"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="💬 SOCIAL • 🎙️ VOICE • 🎨 CREATIVE • 📆 WEEKLY",
+            value=(
+                "**Social:** Reply to 3+ unique people per day\n"
+                "**Voice:** 15+ minutes in voice per day\n"
+                "**Creative:** Post media daily\n"
+                "**Weekly:** Be active 5+ of 7 days\n\n"
+                "Use `!allstreaks` to see all your streaks."
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="❄️ STREAK PROTECTION",
+            value=(
+                "**Freeze tokens** — buy with `!buyfreeze` (200 🪙). "
+                "Auto-activates if you miss a day. Hold up to 3.\n"
+                "**Grace period** — first break of a 14+ day streak gets a free 24h save.\n"
+                "**Paired streaks** — `!pairstreak @user` — both must be active daily or BOTH lose it!"
+            ),
+            inline=False,
+        )
+        embed.set_footer(text="!streak • !allstreaks • !streakboard • !buyfreeze")
         return embed
 
     def _build_reactions_embed(self) -> discord.Embed:
@@ -204,7 +232,8 @@ class Info(commands.Cog):
                 "• **+0.2 points per minute** in any voice channel\n"
                 "• Max **8 hours** per session (capped to prevent abuse)\n"
                 "• AFK channel doesn't count\n"
-                "• Points are awarded when you **leave** the voice channel\n\n"
+                "• Points are awarded when you **leave** the voice channel\n"
+                "• Hanging out together builds **friendship scores** too!\n\n"
                 "**Example:**\n"
                 "1 hour in voice = **12 points**\n"
                 "A whole evening (4 hours) = **48 points**\n\n"
@@ -228,7 +257,6 @@ class Info(commands.Cog):
             color=EMBED_COLOR_PRIMARY,
         )
 
-        # Group by category
         categories = {
             "💬 MESSAGING": ["first_message", "replies_50", "replies_500", "tags_50", "media_first", "media_50"],
             "🔥 STREAKS": ["streak_3", "streak_7", "streak_14", "streak_30", "streak_100"],
@@ -260,15 +288,16 @@ class Info(commands.Cog):
         embed = discord.Embed(
             title="💭 DAILY PROMPTS",
             description=(
-                "Every day, Keeper posts a **discussion question** in #general.\n\n"
+                "Every day at **6 PM UTC**, Keeper posts a **discussion question** in #general.\n\n"
                 "━━━━━━━━━━━━━━━━━━━━━\n\n"
                 "**Why reply?**\n"
                 "• It's an easy conversation starter\n"
-                "• Replies get **3x points**\n"
-                "• Tag someone in your reply for **4x**\n"
+                "• Replies get **2.5x points**\n"
+                "• Tag someone in your reply for **6x**\n"
                 "• Great way to keep your streak alive\n\n"
-                "Topics range from hot takes to dating advice to gym talk.\n"
-                "New question every day. Never run out of things to talk about."
+                "Topics range from hot takes to dating advice to gym talk.\n\n"
+                "**Submit your own:** `!submit prompt <your question>` (20 🪙)\n"
+                "If it gets approved and used, you earn **100 🪙** and get credited!"
             ),
             color=EMBED_COLOR_ACCENT,
         )
@@ -307,7 +336,7 @@ class Info(commands.Cog):
             ),
             inline=True,
         )
-        embed.add_field(name="", value="", inline=False)  # Line break
+        embed.add_field(name="", value="", inline=False)
         embed.add_field(
             name="🔵 CERTIFIED I–X — Blue",
             value=(
@@ -322,7 +351,7 @@ class Info(commands.Cog):
             value=(
                 "**Starts at:** ~2,000 pts\n"
                 "**Tagline:** *\"Therapist: 'And the Discord?'\"*\n"
-                "Real ones. This is where dedication shows."
+                "Real ones. Unlock **factions** here."
             ),
             inline=True,
         )
@@ -332,7 +361,7 @@ class Info(commands.Cog):
             value=(
                 "**Starts at:** ~5,600 pts\n"
                 "**Tagline:** *\"You've seen things.\"*\n"
-                "You've been through it all. Respect."
+                "Unlock **prestige** and **rivalries** here."
             ),
             inline=True,
         )
@@ -401,7 +430,6 @@ class Info(commands.Cog):
             color=EMBED_COLOR_PRIMARY,
         )
 
-        # Show each group's 10 sub-ranks with thresholds
         for group_idx, (group_name, _, _, tagline) in enumerate(GROUPS):
             lines = []
             for sub_idx in range(10):
@@ -422,7 +450,7 @@ class Info(commands.Cog):
                 "• Rank-ups are announced in **#rank-ups** with a big embed\n"
                 "• A subtle message also appears in the channel where you ranked up\n"
                 "• Use `!rank` anytime to see your progress bar to the next level\n"
-                "• Streak bonuses make climbing **much** faster (up to 3x at 100-day streak)"
+                "• Streak bonuses make climbing **much** faster (up to 4x at 365-day streak)"
             ),
             inline=False,
         )
@@ -524,14 +552,14 @@ class Info(commands.Cog):
             description=(
                 "Life happens. But The Circle remembers you.\n\n"
                 "━━━━━━━━━━━━━━━━━━━━━\n\n"
-                "**If you've been gone 7+ days:**\n"
-                "⚡ Your first message back gets a **5x score bonus**\n"
-                "📣 Keeper announces your return to the server\n\n"
-                "**If you've been gone 14+ days:**\n"
-                "📩 Keeper will DM you a friendly reminder\n\n"
-                "**If you've been gone 30+ days:**\n"
-                "📉 Your score starts to slowly decrease (**-2% per day**)\n"
-                "This protects the leaderboard from being dominated by inactive accounts.\n\n"
+                "**Comeback bonuses:**\n"
+                "⚡ 7-29 days away → **3x** scoring bonus\n"
+                "⚡ 30-59 days away → **5x** scoring bonus + coin gift\n"
+                "⚡ 60+ days away → **3x** scoring bonus\n\n"
+                "**But beware — inactivity has consequences:**\n"
+                "📉 After 30 days: score starts decaying (0.5%/day)\n"
+                "📉 After 60 days: decay accelerates (3%/day)\n"
+                "💀 After 3 days below your rank threshold: **demotion**\n\n"
                 "*Come back before your rank slips. The Circle waits.*"
             ),
             color=EMBED_COLOR_ACCENT,
@@ -548,11 +576,13 @@ class Info(commands.Cog):
                 "**How to earn Circles:**\n"
                 "🪙 Every scored message = **+1 Circle**\n"
                 "📅 Daily login rewards = **10-500 Circles**\n"
-                "🏆 Achievements and milestones = bonus Circles\n"
-                "🎁 Mystery box prizes\n\n"
+                "🎡 Daily wheel spin (`!spin`)\n"
+                "🎰 Progressive jackpot (rare!)\n"
+                "🎁 Mystery drops (every 100 server messages)\n"
+                "🏆 Achievements, milestones, and events\n\n"
                 "**What to spend them on:**\n"
                 "Use `!shop` to see the full store — custom colors, XP boosts, "
-                "mystery boxes, profile upgrades, and limited-time exclusives.\n\n"
+                "mystery boxes, streak freezes, season passes, and limited-time exclusives.\n\n"
                 "Use `!balance` to check your wallet."
             ),
             color=EMBED_COLOR_ACCENT,
@@ -573,10 +603,10 @@ class Info(commands.Cog):
         lines = []
         for key, item in SHOP_ITEMS.items():
             lines.append(f"{item['emoji']} **{item['name']}** — {item['cost']} {ECONOMY_CURRENCY_EMOJI}\n   {item['desc']}")
-        embed.add_field(name="📦 AVAILABLE ITEMS", value="\n\n".join(lines), inline=False)
+        embed.add_field(name="📦 PERMANENT ITEMS", value="\n\n".join(lines), inline=False)
         embed.add_field(
-            name="🔄 ROTATING STOCK",
-            value="Limited-time items appear weekly — exclusive roles, VIP access, and more. Check `!shop` regularly!",
+            name="🔄 ROTATING DAILY STOCK",
+            value="3 limited-time items rotate every day — XP boosts, streak shields, premium mystery boxes, and more. Check `!shop` daily!",
             inline=False,
         )
         embed.set_footer(text="!shop to browse • !buy <item> to purchase")
@@ -596,8 +626,7 @@ class Info(commands.Cog):
                 "Day 1: 10 🪙\n"
                 "Day 7: 75 🪙 + Mystery Box\n"
                 "Day 14: 100 🪙 + Rare Color\n"
-                "Day 30: 500 🪙 + Badge\n\n"
-                "Use `!loginstreak` to check your progress."
+                "Day 30: 500 🪙 + Badge"
             ),
             color=EMBED_COLOR_ACCENT,
         )
@@ -615,9 +644,12 @@ class Info(commands.Cog):
                 "💬 Or use `!confess` in any channel (auto-deleted for privacy)\n\n"
                 "**Rules:**\n"
                 "• One confession every 6 hours\n"
-                "• No slurs or harassment\n"
+                "• Max 1000 characters\n"
+                "• Content is filtered for safety\n"
                 "• Confessions posted in #confessions (read-only)\n"
                 "• Discuss them in #confession-discussion\n\n"
+                "**See something wrong?** Use `!report <number>` to flag it.\n"
+                "3 reports = auto-removed.\n\n"
                 "Keeper will never reveal who said what... publicly. 👁️"
             ),
             color=EMBED_COLOR_PRIMARY,
@@ -665,11 +697,12 @@ class Info(commands.Cog):
         embed.add_field(
             name="HOW IT WORKS",
             value=(
-                "• **Permanent choice** — choose wisely\n"
+                "• **Permanent choice** — choose wisely (switching costs 1000 🪙)\n"
                 "• Each team has a **private channel**\n"
                 "• Weekly **team competition** — all members' activity counts\n"
-                "• **Winning team** gets 10% bonus points for the next week\n\n"
-                "Use `!faction` to view standings or `!joinfaction <name>` to join."
+                "• **Winning team** gets 10% bonus points for the next week\n"
+                "• Last-place team gets their channel **locked for 24h**\n\n"
+                "Use `!faction` to view standings."
             ),
             inline=False,
         )
@@ -684,7 +717,7 @@ class Info(commands.Cog):
                 "━━━━━━━━━━━━━━━━━━━━━\n\n"
                 "**View:** `!profile` or `!profile @user`\n\n"
                 "Your profile shows your rank, score, coins, streak, badges, "
-                "voice time, faction, bio, and more.\n\n"
+                "voice time, faction, friends, bio, and more.\n\n"
                 "**Customize:**\n"
                 "✏️ `!setbio <text>` — Set your bio (free, 100 chars)\n"
                 "🎨 `!setcolor #hex` — Custom accent color (100 🪙)\n"
@@ -714,7 +747,18 @@ class Info(commands.Cog):
                 "🔥 **Thursday** — Hot Take Thursday (spiciest opinions)\n"
                 "😂 **Friday** — Meme Friday (best meme competition)\n"
                 "🎤 **Saturday** — VC Saturday (voice channel hangouts)\n"
-                "📊 **Sunday** — Weekly Recap (stats & highlights)"
+                "📊 **Sunday** — Sunday Ceremony (multi-embed weekly recap)"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="⚡ RANDOM EVENTS",
+            value=(
+                "**Quick Fire** — Keeper drops random questions ~3x/day. "
+                "First 5 replies get bonus points!\n"
+                "**Double XP** — Random 15-30 min windows every 4-8 hours. ALL points doubled.\n"
+                "**Mystery Drops** — Every 100 server messages, someone wins a random reward.\n"
+                "**Oracle** — Keeper's cryptic prediction every evening at 9 PM UTC."
             ),
             inline=False,
         )
@@ -748,6 +792,152 @@ class Info(commands.Cog):
         embed.set_footer(text="Guide others. Earn together. Grow The Circle.")
         return embed
 
+    # ── Phase 3 Embeds ─────────────────────────────────────────────────────
+
+    def _build_variable_rewards_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title="🎰 VARIABLE REWARDS",
+            description=(
+                "The Circle is unpredictable. That's what makes it addicting.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━"
+            ),
+            color=EMBED_COLOR_ACCENT,
+        )
+        embed.add_field(
+            name="🎡 DAILY WHEEL — `!spin`",
+            value="Free spin once per day. Win 5-500 🪙, XP boosts, streak freezes, or trigger the jackpot.",
+            inline=False,
+        )
+        embed.add_field(
+            name="🎰 PROGRESSIVE JACKPOT",
+            value="Every message adds 0.5 🪙 to the pot. 0.05% chance to win it all. Average payout: ~1000 🪙.",
+            inline=False,
+        )
+        embed.add_field(
+            name="⚡ CRITICAL HITS & BONUS DROPS",
+            value=(
+                "**2% chance** per message → 2x points (Critical Hit)\n"
+                "**2% chance** per message → your NEXT message gets 2-10x (Bonus Drop)\n"
+                "**Near-miss** messages remind you how close you were..."
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="🎁 MYSTERY BOX — `!buy mystery_box`",
+            value="150 🪙. 10-item loot table: coins, XP boosts, streak freezes, rank shields, or... nothing.",
+            inline=False,
+        )
+        embed.set_footer(text="Every message could be the one. Keep talking.")
+        return embed
+
+    def _build_social_graph_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title="👥 SOCIAL CONNECTIONS",
+            description=(
+                "The Circle tracks who you interact with and builds a **friendship score**.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━"
+            ),
+            color=EMBED_COLOR_PRIMARY,
+        )
+        embed.add_field(
+            name="HOW FRIENDSHIP GROWS",
+            value=(
+                "↩️ Replies = **3 pts** per interaction\n"
+                "🏷️ Mentions = **2 pts** per interaction\n"
+                "❤️ Reactions = **1 pt** per interaction\n"
+                "🎤 Voice together = **0.5 pts** per minute\n"
+                "📉 5% weekly decay on inactive pairs"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="COMMANDS",
+            value=(
+                "👥 `!friends` — Your top 5 connections\n"
+                "🔗 `!bestfriend` / `!bf` — Your #1 bond (mutual = announced!)\n"
+                "⚔️ `!rival @user` — Declare a 4-week rivalry (50 🪙)\n"
+                "🔗 `!pairstreak @user` — Start a paired streak\n"
+                "🤝 `!circle create/invite/leave/info` — Friend groups (Certified+)"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="🤝 CONNECTION QUESTS",
+            value="New members with few connections get auto-matched with active members. Reply to each other 3x in 24h → both earn 25 pts + 10 🪙.",
+            inline=False,
+        )
+        embed.set_footer(text="The Circle rewards connection. Talk to each other.")
+        return embed
+
+    def _build_season_pass_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title="⚡ SEASON PASS",
+            description=(
+                "**8-week seasons** with 50 tiers to climb.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━"
+            ),
+            color=EMBED_COLOR_ACCENT,
+        )
+        embed.add_field(
+            name="HOW IT WORKS",
+            value=(
+                "• Earn **Season XP** from regular activity (50% of your message score)\n"
+                "• Complete **weekly challenges** (3/week) and **daily challenges** (1/day)\n"
+                "• Free rewards every 5 tiers: coins, badges, banners, titles\n"
+                "• **Premium pass** (5000 🪙) unlocks extra rewards at every tier\n"
+                "• **Early bird:** 2x Season XP for the first 48 hours of a new season"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="COMMANDS",
+            value=(
+                "⚡ `!season` — Your season progress\n"
+                "🎯 `!challenges` — Active challenges\n"
+                "💎 `!season buy` — Upgrade to premium (5000 🪙)"
+            ),
+            inline=False,
+        )
+        embed.set_footer(text="New season every 8 weeks. Climb fast.")
+        return embed
+
+    def _build_prestige_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title="🔄 PRESTIGE SYSTEM",
+            description=(
+                "Reached **Veteran I** (Rank 41)? You can **prestige**.\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━"
+            ),
+            color=EMBED_COLOR_PRIMARY,
+        )
+        embed.add_field(
+            name="WHAT HAPPENS",
+            value=(
+                "**Resets:** Your score and rank (back to Rookie I)\n"
+                "**Keeps:** Your coins, badges, faction, profile, paired streaks\n"
+                "**Gains:** Permanent scoring bonus (+5% per prestige level)"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="5 PRESTIGE LEVELS",
+            value=(
+                "P1: +5% permanent + 2,000 🪙\n"
+                "P2: +10% permanent + 5,000 🪙\n"
+                "P3: +15% permanent + 10,000 🪙\n"
+                "P4: +20% permanent + 20,000 🪙\n"
+                "P5: +25% permanent + 50,000 🪙"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="COMMANDS",
+            value="`!prestige` — View info | `!prestige confirm` — Do it (no going back)",
+            inline=False,
+        )
+        embed.set_footer(text="Reset your rank. Keep your power. Climb again — faster.")
+        return embed
+
     def _build_commands_embed(self) -> discord.Embed:
         embed = discord.Embed(
             title="🤖 ALL COMMANDS",
@@ -764,19 +954,24 @@ class Info(commands.Cog):
                 "📊 `!top` — Top 10 leaderboard\n"
                 "👤 `!profile [@user]` — Full profile view\n"
                 "👀 `!stats @user` — Someone else's stats\n"
-                "📨 `!invites` — Invite leaderboard"
+                "📨 `!invites` — Invite leaderboard\n"
+                "📈 `!ladder` — Your engagement tier"
             ),
             inline=False,
         )
         embed.add_field(
-            name="🔥 ENGAGEMENT",
+            name="🔥 STREAKS & DAILY",
             value=(
-                "🔥 `!streak` — Your current daily streak\n"
-                "🔥 `!streaks` — Streak leaderboard\n"
-                "🎤 `!voicetime` — Your voice channel time\n"
-                "🏅 `!badges` — Your achievement badges\n"
+                "🔥 `!streak` — Your daily streak\n"
+                "🔥 `!allstreaks` — All 5 streak types\n"
+                "🔥 `!streakboard` — Streak leaderboard\n"
+                "❄️ `!buyfreeze` — Buy streak freeze (200 🪙)\n"
+                "🔗 `!pairstreak @user` — Start a paired streak\n"
                 "📅 `!daily` — Claim daily login reward\n"
-                "📅 `!loginstreak` — Check login reward streak"
+                "🎡 `!spin` — Daily wheel spin\n"
+                "🏅 `!badges` — Your achievements\n"
+                "🎤 `!voicetime` — Voice channel time\n"
+                "🔮 `!oracle` — Today's prediction"
             ),
             inline=False,
         )
@@ -785,27 +980,41 @@ class Info(commands.Cog):
             value=(
                 "💰 `!balance` — Check your Circles\n"
                 "🏪 `!shop` — Browse the shop\n"
-                "🛒 `!buy <item>` — Buy from the shop\n"
-                "💎 `!richest` — Richest members"
+                "🛒 `!buy <item>` — Buy from the shop"
             ),
             inline=False,
         )
         embed.add_field(
-            name="⚔️ FACTIONS & SOCIAL",
+            name="👥 SOCIAL & FACTIONS",
             value=(
-                "⚔️ `!faction` — View faction standings\n"
-                "⚔️ `!joinfaction <name>` — Join a faction\n"
+                "👥 `!friends` — Your top 5 connections\n"
+                "🔗 `!bestfriend` — Your #1 bond\n"
+                "⚔️ `!rival @user` — Declare rivalry (50 🪙)\n"
+                "⚔️ `!faction` — Faction standings\n"
                 "🔮 `!confess <text>` — Anonymous confession\n"
-                "📊 `!goal` — Weekly community goal\n"
-                "✏️ `!setbio <text>` — Set profile bio\n"
-                "🎨 `!setcolor #hex` — Set profile color (100🪙)\n"
-                "🖼️ `!setbanner <url>` — Set profile banner (200🪙)"
+                "🚩 `!report <number>` — Flag a confession\n"
+                "📝 `!submit prompt/hottake/trivia` — Submit content (20 🪙)"
             ),
             inline=False,
         )
         embed.add_field(
-            name="❓ HELP",
-            value="❓ `!help` — Quick command reference",
+            name="⚡ SEASON & PRESTIGE",
+            value=(
+                "⚡ `!season` — Season pass progress\n"
+                "🎯 `!challenges` — Active challenges\n"
+                "💎 `!season buy` — Premium pass (5000 🪙)\n"
+                "🔄 `!prestige` — Prestige info (Veteran+)\n"
+                "📊 `!goal` — Weekly community goal"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="✏️ PROFILE",
+            value=(
+                "✏️ `!setbio <text>` — Set profile bio\n"
+                "🎨 `!setcolor #hex` — Set profile color (100 🪙)\n"
+                "❓ `!help` — Quick command reference"
+            ),
             inline=False,
         )
         embed.add_field(
