@@ -210,11 +210,12 @@ class HealthCheck(commands.Cog):
 
     def _check_cogs(self) -> list[dict]:
         """Check all expected cogs are loaded."""
+        # Use actual class names from each cog file
         expected_cogs = [
             # Phase 1
             "Streaks", "AchievementChecker", "ScoringHandler", "Leaderboard",
-            "MediaFeed", "Welcome", "InviteTracker", "Comeback", "ReactionPoints",
-            "VoiceXP", "DailyPrompts", "WeeklyRecap", "InfoCog", "SetupServer",
+            "MediaFeed", "Welcome", "InviteTracker", "Comeback", "ReactionScoring",
+            "VoiceXP", "DailyPrompts", "WeeklyRecap", "Info", "SetupServer",
             # Phase 2
             "Onboarding", "Introductions", "Confessions", "Starboard",
             "InviteReminders", "GrowthNudges", "EngagementTriggers", "Economy",
@@ -300,13 +301,13 @@ class HealthCheck(commands.Cog):
         """Check that key background tasks are running."""
         results = []
         task_checks = {
-            "LossAversion": ["daily_decay_check", "streak_risk_check"],
-            "ContentEngine": ["quick_fire_scheduler", "dead_zone_detector"],
+            "LossAversion": ["daily_decay_and_demotion", "streak_at_risk_check"],
+            "ContentEngine": ["quick_fire_scheduler", "dead_zone_detector", "trending_scanner"],
             "Reengagement": ["reengagement_loop"],
-            "VariableRewards": ["surprise_2x_scheduler"],
-            "SocialGraph": ["friendship_decay", "icebreaker_matchmaking"],
+            "VariableRewards": ["_surprise_2x_loop"],
+            "SocialGraph": ["friendship_decay", "icebreaker_matchmaking", "best_friend_detection"],
             "SeasonPass": ["check_season_loop"],
-            "EngagementLadder": ["recalculate_tiers"],
+            "EngagementLadder": ["weekly_recalculate"],
         }
 
         for cog_name, task_names in task_checks.items():
