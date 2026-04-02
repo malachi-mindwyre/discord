@@ -195,5 +195,52 @@ class SetupServer(commands.Cog):
         await ctx.send(embed=embed)
 
 
+    @commands.command(name="purgeall")
+    @commands.has_permissions(administrator=True)
+    async def purge_all_channels(self, ctx: commands.Context):
+        """Delete ALL messages in ALL text channels. Admin only. Irreversible."""
+        guild = ctx.guild
+        if not guild:
+            return
+
+        await ctx.send("⚫ **Keeper is purging The Circle...**\nThis will take a while. Do not interrupt.")
+
+        total_deleted = 0
+        channels_purged = 0
+
+        for channel in guild.text_channels:
+            try:
+                count = 0
+                # bulk_delete handles messages < 14 days old (up to 100 at a time)
+                while True:
+                    deleted = await channel.purge(limit=100)
+                    if not deleted:
+                        break
+                    count += len(deleted)
+                total_deleted += count
+                if count > 0:
+                    channels_purged += 1
+            except discord.Forbidden:
+                pass  # Skip channels the bot can't manage
+            except discord.HTTPException:
+                pass
+
+        # Send summary in the command channel (it was just purged too, so create fresh message)
+        try:
+            summary_ch = ctx.channel if ctx.channel in guild.text_channels else guild.text_channels[0]
+            embed = discord.Embed(
+                title="⚫ PURGE COMPLETE",
+                description=(
+                    f"**{total_deleted:,}** messages deleted across **{channels_purged}** channels.\n\n"
+                    f"The Circle is reborn. The slate is clean.\n"
+                    f"*Run `!postinfo` to repopulate #info.*"
+                ),
+                color=0xE94560,
+            )
+            await summary_ch.send(embed=embed)
+        except discord.HTTPException:
+            pass
+
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(SetupServer(bot))
