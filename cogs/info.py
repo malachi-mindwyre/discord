@@ -1009,6 +1009,15 @@ class Info(commands.Cog):
             inline=False,
         )
         embed.add_field(
+            name="⏳ TIME CAPSULES",
+            value=(
+                "💊 `!timecapsule <msg>` — Seal a message for 90 days\n"
+                "📦 `!capsules` — View your sealed capsules\n"
+                "Max 3 active. Revealed via DM after 90 days."
+            ),
+            inline=False,
+        )
+        embed.add_field(
             name="✏️ PROFILE",
             value=(
                 "✏️ `!setbio <text>` — Set profile bio\n"
