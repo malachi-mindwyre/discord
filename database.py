@@ -284,8 +284,7 @@ async def init_db():
 
             CREATE TABLE IF NOT EXISTS daily_spins (
                 user_id INTEGER PRIMARY KEY,
-                last_spin_date TEXT,
-                total_spins INTEGER DEFAULT 0
+                last_spin_date TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS bonus_drops (
@@ -297,23 +296,21 @@ async def init_db():
             -- Loss Aversion
             CREATE TABLE IF NOT EXISTS demotion_watch (
                 user_id INTEGER PRIMARY KEY,
-                below_threshold_since TEXT,
-                current_rank_at_watch INTEGER
+                days_below INTEGER DEFAULT 0,
+                first_seen TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS streak_freezes (
                 user_id INTEGER PRIMARY KEY,
-                tokens_held INTEGER DEFAULT 0,
-                tokens_used_total INTEGER DEFAULT 0,
-                last_auto_used TEXT
+                tokens_held INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS displacement_log (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
-                overtaker_id INTEGER NOT NULL,
-                old_position INTEGER,
-                new_position INTEGER,
+                displaced_by INTEGER NOT NULL,
+                old_position INTEGER NOT NULL,
+                new_position INTEGER NOT NULL,
                 timestamp TEXT NOT NULL
             );
 
@@ -345,16 +342,13 @@ async def init_db():
 
             -- Streaks v2
             CREATE TABLE IF NOT EXISTS streaks_v2 (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 streak_type TEXT NOT NULL,
-                current_count INTEGER DEFAULT 0,
-                longest_count INTEGER DEFAULT 0,
-                last_activity_date TEXT,
-                freeze_tokens INTEGER DEFAULT 0,
-                frozen_today INTEGER DEFAULT 0,
-                grace_period_used INTEGER DEFAULT 0,
-                UNIQUE(user_id, streak_type)
+                current_streak INTEGER NOT NULL DEFAULT 0,
+                longest_streak INTEGER NOT NULL DEFAULT 0,
+                last_activity TEXT,
+                grace_period_used INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (user_id, streak_type)
             );
 
             CREATE TABLE IF NOT EXISTS paired_streaks (
@@ -403,19 +397,18 @@ async def init_db():
             -- Circles (Friend Groups)
             CREATE TABLE IF NOT EXISTS circles (
                 circle_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                creator_id INTEGER NOT NULL,
+                name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                leader_id INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
-                max_members INTEGER DEFAULT 8,
-                description TEXT DEFAULT ''
+                role_id INTEGER DEFAULT NULL
             );
 
             CREATE TABLE IF NOT EXISTS circle_members (
                 circle_id INTEGER NOT NULL,
                 user_id INTEGER NOT NULL,
                 joined_at TEXT NOT NULL,
-                role TEXT DEFAULT 'member',
-                PRIMARY KEY (circle_id, user_id)
+                PRIMARY KEY (circle_id, user_id),
+                FOREIGN KEY (circle_id) REFERENCES circles(circle_id)
             );
 
             -- Content Engine
@@ -425,11 +418,11 @@ async def init_db():
                 content_type TEXT NOT NULL,
                 content TEXT NOT NULL,
                 submitted_at TEXT NOT NULL,
-                approved INTEGER DEFAULT 0,
-                used_at TEXT,
-                engagement_score REAL DEFAULT 0.0,
-                upvotes INTEGER DEFAULT 0,
-                downvotes INTEGER DEFAULT 0
+                status TEXT DEFAULT 'pending',
+                reviewed_by INTEGER,
+                reviewed_at TEXT,
+                times_used INTEGER DEFAULT 0,
+                user_approval_count INTEGER DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS debate_scores (
@@ -442,11 +435,11 @@ async def init_db():
 
             CREATE TABLE IF NOT EXISTS trending_topics (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                topic TEXT NOT NULL,
-                mention_count INTEGER DEFAULT 0,
-                unique_users INTEGER DEFAULT 0,
+                word TEXT NOT NULL,
+                mention_count INTEGER NOT NULL,
+                unique_users INTEGER NOT NULL,
                 detected_at TEXT NOT NULL,
-                window_start TEXT NOT NULL
+                posted INTEGER DEFAULT 0
             );
 
             -- Faction Warfare 2.0
@@ -497,10 +490,9 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS season_progress (
                 user_id INTEGER NOT NULL,
                 season_id INTEGER NOT NULL,
-                xp INTEGER DEFAULT 0,
-                tier INTEGER DEFAULT 0,
+                season_xp INTEGER DEFAULT 0,
+                current_tier INTEGER DEFAULT 0,
                 is_premium INTEGER DEFAULT 0,
-                weekly_challenges_completed INTEGER DEFAULT 0,
                 PRIMARY KEY (user_id, season_id)
             );
 
@@ -607,8 +599,9 @@ async def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 boost_type TEXT NOT NULL,
-                multiplier REAL DEFAULT 2.0,
-                expires_at TEXT NOT NULL
+                multiplier REAL NOT NULL DEFAULT 2.0,
+                expires_at TEXT NOT NULL,
+                created_at TEXT NOT NULL
             );
 
             -- ─── Indexes ─────────────────────────────────────────────────
@@ -672,7 +665,7 @@ async def get_or_create_user(user_id: int, username: str) -> dict:
         if row:
             return dict(row)
         await db.execute(
-            "INSERT INTO users (user_id, username, joined_at, last_active) VALUES (?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO users (user_id, username, joined_at, last_active) VALUES (?, ?, ?, ?)",
             (user_id, username, now, now),
         )
         await db.commit()

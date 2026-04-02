@@ -558,17 +558,7 @@ class ScoringHandler(commands.Cog):
                     pass
 
     async def _announce_rankup(self, message: discord.Message, new_rank, new_total: float):
-        """Post rank-up announcements in #rank-ups and inline."""
-        try:
-            await message.channel.send(
-                KEEPER_RANKUP_INLINE.format(
-                    mention=message.author.mention,
-                    rank_name=new_rank.name,
-                )
-            )
-        except discord.HTTPException:
-            pass
-
+        """Post rank-up announcement in #rank-ups only (no inline spam)."""
         rank_ups_channel = discord.utils.get(message.guild.text_channels, name="rank-ups")
         if rank_ups_channel:
             next_rank = get_next_rank(new_rank.tier)

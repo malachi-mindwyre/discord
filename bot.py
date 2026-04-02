@@ -47,7 +47,7 @@ COG_EXTENSIONS = [
     "cogs.info",
     "setup_server",
     # ─── Phase 2 (Engagement) ────────────────────────────
-    "cogs.onboarding",
+    # "cogs.onboarding",             # Superseded by onboarding_v2
     "cogs.introductions",
     "cogs.confessions",
     "cogs.starboard",
