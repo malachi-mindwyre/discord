@@ -1,7 +1,7 @@
 # The Circle — Discord Bot Project
 
 ## What This Is
-A custom Discord bot called **"Keeper"** for a social server called **"The Circle"**. Built in Python (discord.py) with SQLite, deployed on a Raspberry Pi 5. Keeper is a scientifically-designed engagement machine with a 6-layer scoring engine, 100-tier rank progression, 44 feature cogs, variable reward psychology, social graph engineering, seasonal battle passes, and multi-dimensional anti-churn systems. ~16,000 lines of code.
+A custom Discord bot called **"Keeper"** for a social server called **"The Circle"**. Built in Python (discord.py) with SQLite, deployed on a Raspberry Pi 5. Keeper is a scientifically-designed engagement machine with a 6-layer scoring engine, 100-tier rank progression, 45 feature cogs, variable reward psychology, social graph engineering, seasonal battle passes, and multi-dimensional anti-churn systems. ~16,000 lines of code.
 
 **Target audience:** Mixed 18-35 demographic. Dark luxury branding. Gamified social community.
 
@@ -33,7 +33,7 @@ A custom Discord bot called **"Keeper"** for a social server called **"The Circl
 - **Database:** SQLite via aiosqlite (file: `circle.db`)
 - **Hosting:** Raspberry Pi 5
 - **Bot Token:** stored in `.env` (not committed)
-- **Total Cogs:** 44 (all loaded successfully)
+- **Total Cogs:** 45 (all loaded successfully)
 - **Total DB Tables:** ~50
 
 ## Raspberry Pi Access
@@ -203,7 +203,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 
 ---
 
-## ALL 44 COGS
+## ALL 45 COGS
 
 ### Phase 1: Core (14 cogs)
 | Cog | File | Purpose |
@@ -260,6 +260,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Season Pass | `cogs/season_pass.py` | **8-week seasons**, 50 tiers, exponential XP curve, free rewards every 5 tiers, premium tier (5000 Circles), weekly challenges (3/week) + daily challenges (1/day), early bird 2x for first 48h, end-of-season ceremony + rankings |
 | Prestige | `cogs/prestige.py` | **Endgame reset** at rank 41+: reset score/rank, keep coins/badges/faction, earn permanent +5% per level (max +25% at prestige 5), 5 prestige levels with escalating coin rewards (2k-50k) |
 | Engagement Ladder | `cogs/engagement_ladder.py` | Tracks user tiers: lurker -> newcomer -> casual -> regular -> power_user -> evangelist. Weekly recalculation, DMs on tier transitions, `!ladder` command |
+| Health Check | `cogs/healthcheck.py` | Automated self-test: 23 checks (DB, tables, cogs, channels, categories, background tasks, scoring engine, config, data health, permissions). Runs every 6h + `!healthcheck` command |
 
 ---
 
@@ -314,6 +315,8 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!recap` | weekly_recap | Manually trigger weekly recap |
 | `!debate start <topic>` | debates | Start a structured debate |
 | `!approve <id>` / `!reject <id>` | content_engine | Approve/reject UGC submissions |
+| `!healthcheck` / `!hc` | healthcheck | Run 23 system checks, show full diagnostic |
+| `!cleanup` | setup_server | Fix orphaned channels, remove duplicate categories |
 
 ---
 
@@ -414,13 +417,13 @@ Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM -> Day 14 D
 ## FILE STRUCTURE
 ```
 discord/
-├── bot.py              -- Main entry, loads 44 cogs
+├── bot.py              -- Main entry, loads 45 cogs
 ├── config.py           -- All constants (~800 lines), scoring weights, engagement params
 ├── database.py         -- SQLite schema (~50 tables) + async CRUD helpers
 ├── scoring.py          -- 6-layer scoring engine (pure logic, no Discord deps)
 ├── ranks.py            -- 100 rank definitions + helpers
 ├── setup_server.py     -- !setup cog (creates channels, roles)
-├── cogs/               -- 43 feature cogs
+├── cogs/               -- 44 feature cogs
 │   ├── __init__.py
 │   ├── achievements.py
 │   ├── auto_events.py
@@ -435,6 +438,7 @@ discord/
 │   ├── debates.py          -- NEW: Structured debates + thermostat
 │   ├── economy.py
 │   ├── engagement_ladder.py -- NEW: Lurker-to-evangelist pipeline
+│   ├── healthcheck.py      -- NEW: Self-test + !healthcheck (23 checks)
 │   ├── engagement_triggers.py
 │   ├── factions.py
 │   ├── growth_nudges.py
@@ -524,7 +528,7 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 **The bot runs on the Pi, not locally.** After ANY code changes:
 1. Push all modified files via tar over SSH
 2. Restart the circle-bot systemd service
-3. Check logs to verify ALL 44 cogs loaded successfully
+3. Check logs to verify ALL 45 cogs loaded successfully
 4. If any cog fails to load, fix it before ending the session
 
 ### 2. Keep Documentation Updated
