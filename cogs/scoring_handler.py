@@ -87,6 +87,8 @@ class ScoringHandler(commands.Cog):
         self._welcome_wagon_replies: dict[int, set[int]] = {}
         # Conversation starter: track message_id -> (author_id, reply_count, bonus_awarded)
         self._conversation_starters: dict[int, list] = {}  # msg_id -> [author_id, reply_count, awarded, timestamp]
+        # Dedup: prevent scoring the same message twice (Discord can re-deliver events)
+        self._scored_message_ids: set[int] = set()
         self._cleanup_bonus_drops.start()
 
     def cog_unload(self):
@@ -155,6 +157,14 @@ class ScoringHandler(commands.Cog):
 
         user_id = message.author.id
         username = str(message.author)
+
+        # Dedup: skip if we already scored this exact message
+        if message.id in self._scored_message_ids:
+            return
+        self._scored_message_ids.add(message.id)
+        # Keep set bounded
+        if len(self._scored_message_ids) > 500:
+            self._scored_message_ids = set(list(self._scored_message_ids)[-250:])
 
         # Anti-spam checks
         if self._check_spam(user_id):

@@ -33,6 +33,9 @@ MEDIA_URL_PATTERNS = [
 class MediaFeed(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        # Dedup: track recently mirrored message IDs to prevent double posts
+        self._recent_mirrors: set[int] = set()
+        self._recent_mirrors_limit = 100
 
     def _has_media(self, message: discord.Message) -> bool:
         """Check if a message contains any media content."""
@@ -81,6 +84,16 @@ class MediaFeed(commands.Cog):
 
         if not self._has_media(message):
             return
+
+        # Dedup: skip if we already mirrored this message
+        if message.id in self._recent_mirrors:
+            return
+        self._recent_mirrors.add(message.id)
+        if len(self._recent_mirrors) > self._recent_mirrors_limit:
+            # Remove oldest entries
+            excess = len(self._recent_mirrors) - self._recent_mirrors_limit
+            for _ in range(excess):
+                self._recent_mirrors.pop()
 
         # Find the media-feed channel
         feed_channel = discord.utils.get(message.guild.text_channels, name="media-feed")

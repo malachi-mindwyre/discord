@@ -47,14 +47,29 @@ class Leaderboard(commands.Cog):
                 except (discord.NotFound, discord.HTTPException):
                     pass
 
-            # Send new leaderboard message
-            try:
-                msg = await channel.send(embed=embed)
-                self._leaderboard_message_id = msg.id
-                self._leaderboard_channel_id = channel.id
-                await msg.pin()
-            except discord.HTTPException:
-                pass
+            # Try to find and edit the last bot message in the channel (survives restarts)
+            found_existing = False
+            async for old_msg in channel.history(limit=20):
+                if old_msg.author == self.bot.user and old_msg.embeds:
+                    first_embed = old_msg.embeds[0]
+                    if first_embed.title and "LEADERBOARD" in first_embed.title:
+                        try:
+                            await old_msg.edit(embed=embed)
+                            self._leaderboard_message_id = old_msg.id
+                            self._leaderboard_channel_id = channel.id
+                            found_existing = True
+                        except discord.HTTPException:
+                            pass
+                        break
+
+            if not found_existing:
+                try:
+                    msg = await channel.send(embed=embed)
+                    self._leaderboard_message_id = msg.id
+                    self._leaderboard_channel_id = channel.id
+                    await msg.pin()
+                except discord.HTTPException:
+                    pass
 
     @refresh_leaderboard.before_loop
     async def before_refresh(self):
