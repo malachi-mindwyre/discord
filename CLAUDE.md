@@ -327,6 +327,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!approve <id>` / `!reject <id>` | content_engine | Approve/reject UGC submissions |
 | `!healthcheck` / `!hc` | healthcheck | Run 23 system checks, show full diagnostic |
 | `!cleanup` | setup_server | Fix orphaned channels, remove duplicate categories |
+| `!purgeall` | setup_server | Delete ALL messages in ALL text channels (irreversible) |
 | `!metrics` | metrics | Show retention dashboard (DAU/MAU, D1/D7/D30 retention) |
 
 ---
