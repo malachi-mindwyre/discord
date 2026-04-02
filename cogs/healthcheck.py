@@ -218,13 +218,15 @@ class HealthCheck(commands.Cog):
     def _check_cogs(self) -> list[dict]:
         """Check all expected cogs are loaded."""
         # Use actual class names from each cog file
+        # Disabled cogs (superseded): Streaks (→StreaksV2), Welcome (→OnboardingV2),
+        # Onboarding (→OnboardingV2), SmartDM (→Reengagement)
         expected_cogs = [
             # Phase 1
-            "Streaks", "AchievementChecker", "ScoringHandler", "Leaderboard",
-            "MediaFeed", "Welcome", "InviteTracker", "Comeback", "ReactionScoring",
+            "AchievementChecker", "ScoringHandler", "Leaderboard",
+            "MediaFeed", "InviteTracker", "Comeback", "ReactionScoring",
             "VoiceXP", "DailyPrompts", "WeeklyRecap", "Info", "SetupServer",
             # Phase 2
-            "Onboarding", "Introductions", "Confessions", "Starboard",
+            "Introductions", "Confessions", "Starboard",
             "InviteReminders", "GrowthNudges", "EngagementTriggers", "Economy",
             "Shop", "AutoEvents", "Trivia", "ServerGoals", "Profiles",
             "Factions", "BuddySystem", "DailyRewards",
@@ -233,6 +235,7 @@ class HealthCheck(commands.Cog):
             "VariableRewards", "DailyWheel", "SocialGraph", "Circles",
             "ContentEngine", "Debates", "SeasonPass", "Prestige",
             "EngagementLadder", "HealthCheck", "Oracle", "Metrics",
+            "MegaEvents", "TimeCapsules", "KeeperPersonality",
         ]
 
         loaded_cogs = set(self.bot.cogs.keys())
