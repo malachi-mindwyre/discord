@@ -484,22 +484,10 @@ async def init_db():
                 PRIMARY KEY (user_id, season_id)
             );
 
-            CREATE TABLE IF NOT EXISTS season_challenges (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                season_id INTEGER NOT NULL,
-                week_number INTEGER NOT NULL,
-                challenge_key TEXT NOT NULL,
-                description TEXT NOT NULL,
-                xp_reward INTEGER NOT NULL,
-                challenge_type TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS season_challenge_completions (
-                user_id INTEGER NOT NULL,
-                challenge_id INTEGER NOT NULL,
-                completed_at TEXT NOT NULL,
-                PRIMARY KEY (user_id, challenge_id)
-            );
+            -- season_challenges and season_challenge_completions are created
+            -- by cogs/season_pass.py with its own schema (includes frequency,
+            -- target_key, target_value, active_date, expires_date columns).
+            -- Do NOT create them here to avoid schema conflicts.
 
             CREATE TABLE IF NOT EXISTS season_rewards (
                 season_id INTEGER NOT NULL,

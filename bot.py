@@ -65,6 +65,7 @@ COG_EXTENSIONS = [
     "cogs.season_pass",            # Seasonal battle pass (8-week seasons)
     "cogs.prestige",               # Prestige system (endgame)
     "cogs.engagement_ladder",      # Lurker-to-evangelist pipeline
+    "cogs.healthcheck",            # Self-test + !healthcheck command
 ]
 
 
