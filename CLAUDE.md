@@ -31,7 +31,7 @@ A custom Discord bot called **"Keeper"** for a social server called **"The Circl
 - **Language:** Python 3.11 (Pi) / 3.9 (local Mac -- needs `from __future__ import annotations`)
 - **Framework:** discord.py 2.7+
 - **Database:** SQLite via aiosqlite (file: `circle.db`)
-- **Hosting:** Raspberry Pi 5
+- **Hosting:** Raspberry Pi 5 (**SINGLE INSTANCE ONLY** — never run bot.py locally while Pi is running; same token = duplicate everything)
 - **Bot Token:** stored in `.env` (not committed)
 - **Total Cogs:** 49 defined, 46 active. Disabled: `streaks.py` (→ streaks_v2), `welcome.py` (→ onboarding_v2), `onboarding.py` (→ onboarding_v2), `smart_dm.py` (→ reengagement)
 - **Total DB Tables:** ~50
@@ -256,7 +256,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 ### Phase 3: Ultimate Engagement Engine (17 cogs)
 | Cog | File | Purpose |
 |---|---|---|
-| Onboarding v2 | `cogs/onboarding_v2.py` | **THE sole welcome/onboarding handler.** Posts #welcome embed, assigns Rookie I role, sends quest DM, runs 7-day pipeline. T+5s quest DM (4 quests with endowed progress — joining counts as #1), T+2hr progress, T+4hr streak anchor, T+24h check-in, T+48h momentum, T+72h milestone tease, Day 6 report card (positive framing), Day 7 graduation ceremony + Survivor badge + 100 Circles. **Fallback:** posts in #general if DMs disabled. **Member ID dedup** prevents double welcomes. |
+| Onboarding v2 | `cogs/onboarding_v2.py` | **THE sole welcome/onboarding handler.** Posts #welcome embed, assigns Rookie I role, sends quest DM, runs 7-day pipeline. T+5s quest DM (4 quests with endowed progress — joining counts as #1), T+2hr progress, T+4hr streak anchor, T+24h check-in, T+48h momentum, T+72h milestone tease, Day 6 report card (positive framing), Day 7 graduation ceremony + Survivor badge + 100 Circles. **Fallback:** posts in #general if DMs disabled. **Two-layer dedup:** (1) in-memory set for rapid re-fires, (2) DB check via `onboarding_state` table for cross-restart persistence. |
 | Streaks v2 | `cogs/streaks_v2.py` | **5 streak types** (daily/weekly/social/voice/creative), freeze tokens, grace periods, paired streaks, division leaderboard |
 | Re-engagement | `cogs/reengagement.py` | **8-tier unified pipeline**: Day 1 server callout, Day 2 loss aversion DM, Day 3 social proof, Day 5 competitive loss, Day 7 urgency, Day 14 active loss, Day 30 nostalgia, Day 60 closure (then opt-out) |
 | Loss Aversion | `cogs/loss_aversion.py` | Graduated decay (0.5%-5%/day by inactivity length), **rank demotion** (3-day grace), streak-at-risk notifications (10 PM UTC, streaks ≥7 only, 1 DM/day), competitive displacement alerts (50+ members only), faction relegation (80+ members only) |
@@ -592,7 +592,8 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 
 ## KNOWN ISSUES / FUTURE WORK
 
-1. ~~**Legacy cog overlap:**~~ **FIXED** — `streaks.py` disabled, `streaks_v2.py` commands renamed to `!streak`/`!streaks` (old names kept as aliases).
+1. ~~**Triple/double welcome + rank-up messages (2026-04-02):**~~ **FIXED** — Root cause: multiple bot instances (2 local Mac + 1 Pi) sharing same token. Killed local processes. Added DB-backed dedup to onboarding_v2. See Audit Fix 7.
+2. ~~**Legacy cog overlap:**~~ **FIXED** — `streaks.py` disabled, `streaks_v2.py` commands renamed to `!streak`/`!streaks` (old names kept as aliases).
 2. ~~**Legacy DM overlap:**~~ **FIXED** — `smart_dm.py` disabled, `reengagement.py` is the sole pipeline. Onboarding/re-engagement pipelines deduplicated.
 3. **Factions warfare 2.0:** The plan includes territory control, treasury, loyalty, traitor mechanics. The current `factions.py` is basic. The config constants exist in `config.py` (FACTION_WAR_CHALLENGE_CYCLE, FACTION_TERRITORY_BONUS, etc.) but the cog hasn't been rewritten yet.
 4. ~~**Enhanced weekly recap:**~~ **BUILT** — `weekly_recap.py` now posts a multi-embed "Sunday Ceremony" with stats overview, streak hall (daily + paired), social bonds (best friend pair + voice hours), and faction standings (conditional).
@@ -665,9 +666,19 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 - **NEW:** #achievements channel added to CHANNEL_STRUCTURE for badge/intro reward announcements.
 - **IMPORTANT PATTERN:** Discord fires `on_member_join` and `on_message` events multiple times in some conditions. ALL cogs that respond to these events MUST implement message/member ID dedup to prevent duplicate bot output. Use in-memory sets with bounded size.
 
+**Audit Fix 7 (2026-04-02) — Triple welcome & double rank-up messages:**
+- ~~**Triple welcome messages persisting after all code dedup:**~~ **ROOT CAUSE FOUND** — Two local `python bot.py` processes were running on the Mac ALONGSIDE the Pi instance, all sharing the same bot token. Three bot instances = three responses to every event. The "📍 THE CHAMBERS" embed content that couldn't be found in any code was from an older/uncommitted local version. **FIX:** Killed local processes. Added DB-backed dedup to `onboarding_v2.py` (checks `onboarding_state` table before posting, survives restarts). In-memory dedup alone is insufficient because it's lost on bot restart.
+- ~~**Double rank-up messages:**~~ **SAME ROOT CAUSE** — Multiple bot instances all firing scoring + rank-up logic for the same messages. Identical rank-up embeds posted 22ms apart.
+- **CRITICAL LESSON:** NEVER run `python bot.py` locally while the Pi instance is running. Multiple instances with the same token will ALL receive and respond to every Discord event, causing duplicate messages, duplicate scoring, and duplicate DB writes. The Pi is the ONLY production instance.
+- **Debugging approach that worked:** Decoded Discord message snowflake IDs to timestamps, fetched message content via Discord REST API to compare embeds, checked `ps aux` on both Mac and Pi to find rogue processes.
+- **Dedup layers now in onboarding_v2:** (1) In-memory set for rapid Discord re-fires, (2) DB check via `get_onboarding_state()` for cross-restart persistence.
+
 ---
 
 ## CRITICAL: Standing Instructions for Every Session
+
+### 0. NEVER Run the Bot Locally
+**The bot runs on the Pi, not locally.** NEVER run `python bot.py` on the Mac while the Pi is running. Multiple instances with the same token = duplicate messages, duplicate scoring, data corruption. Check with `ps aux | grep bot.py` if in doubt. Kill any local processes before deploying.
 
 ### 1. Always Deploy to Raspberry Pi
 **The bot runs on the Pi, not locally.** After ANY code changes:
