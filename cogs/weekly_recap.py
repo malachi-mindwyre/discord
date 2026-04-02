@@ -160,18 +160,21 @@ class WeeklyRecap(commands.Cog):
                     )
                 embeds.append(embed2)
 
-            # ── Embed 3: Social Bonds ─────────────────────────────────────
+            # ── Embed 3: Social Bonds (suppress if empty/weak) ────────────
             social_parts = []
             if best_pair:
                 user_a, user_b, score = best_pair
-                member_a = guild.get_member(user_a)
-                member_b = guild.get_member(user_b)
-                name_a = member_a.display_name if member_a else f"User#{user_a}"
-                name_b = member_b.display_name if member_b else f"User#{user_b}"
-                social_parts.append(f"🤝 **Best Friends of the Week:** {name_a} & {name_b} (score: {score:.1f})")
+                # Only show best friend pair if score is meaningful (>= 25)
+                if score >= 25:
+                    member_a = guild.get_member(user_a)
+                    member_b = guild.get_member(user_b)
+                    name_a = member_a.display_name if member_a else f"User#{user_a}"
+                    name_b = member_b.display_name if member_b else f"User#{user_b}"
+                    social_parts.append(f"🤝 **Best Friends of the Week:** {name_a} & {name_b} (score: {score:.1f})")
 
             voice_hours = voice_minutes / 60
-            if voice_hours > 0:
+            # Only show voice stats if meaningful (>= 0.5 hours)
+            if voice_hours >= 0.5:
                 social_parts.append(f"🎤 **{voice_hours:.1f} hours** spent together in voice")
 
             if social_parts:
@@ -182,21 +185,27 @@ class WeeklyRecap(commands.Cog):
                 )
                 embeds.append(embed3)
 
-            # ── Embed 4: Faction Standings (conditional) ──────────────────
+            # ── Embed 4: Faction Standings (suppress if < 2 active teams) ──
             if faction_standings:
-                faction_emojis = {"Inferno": "🔴", "Frost": "🔵", "Venom": "🟢", "Volt": "🟡"}
-                faction_lines = []
-                for i, f in enumerate(faction_standings):
-                    emoji = faction_emojis.get(f["team_name"], "⚔️")
-                    prefix = "👑" if i == 0 else f"#{i+1}"
-                    faction_lines.append(f"{prefix} {emoji} **{f['team_name']}** — {f['total_score']:,.0f} pts")
+                faction_teams_with_activity = sum(1 for f in faction_standings if f.get("total_score", 0) > 0)
 
-                embed4 = discord.Embed(
-                    title="⚔️ FACTION STANDINGS",
-                    description="━━━━━━━━━━━━━━━━━━━━━\n\n" + "\n".join(faction_lines),
-                    color=EMBED_COLOR_ACCENT,
-                )
-                embeds.append(embed4)
+                if faction_teams_with_activity >= 2:
+                    faction_emojis = {"Inferno": "🔴", "Frost": "🔵", "Venom": "🟢", "Volt": "🟡"}
+                    faction_lines = []
+                    for i, f in enumerate(faction_standings):
+                        if f.get("total_score", 0) <= 0:
+                            continue
+                        emoji = faction_emojis.get(f["team_name"], "⚔️")
+                        prefix = "👑" if i == 0 else f"#{i+1}"
+                        faction_lines.append(f"{prefix} {emoji} **{f['team_name']}** — {f['total_score']:,.0f} pts")
+
+                    if faction_lines:
+                        embed4 = discord.Embed(
+                            title="⚔️ FACTION STANDINGS",
+                            description="━━━━━━━━━━━━━━━━━━━━━\n\n" + "\n".join(faction_lines),
+                            color=EMBED_COLOR_ACCENT,
+                        )
+                        embeds.append(embed4)
 
             # ── Send all embeds ───────────────────────────────────────────
             for embed in embeds:

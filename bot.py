@@ -81,6 +81,8 @@ COG_EXTENSIONS = [
     "cogs.healthcheck",            # Self-test + !healthcheck command
     "cogs.oracle",                 # Evening prediction ritual
     "cogs.metrics",                # Retention analytics dashboard
+    "cogs.mega_events",            # Monthly mega events (The Purge, Circle Games, etc.)
+    "cogs.time_capsules",          # Time capsule system (!timecapsule, !capsules)
 ]
 
 
@@ -106,6 +108,8 @@ async def on_ready():
         "SocialGraph": ["friendship_decay", "icebreaker_matchmaking", "best_friend_detection"],
         "SeasonPass": ["check_season_loop", "check_challenges_loop"],
         "EngagementLadder": ["weekly_recalculate"],
+        "MegaEvents": ["event_loop"],
+        "TimeCapsules": ["reveal_loop"],
     }
     for cog_name, task_names in task_map.items():
         cog = bot.get_cog(cog_name)

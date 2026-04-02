@@ -39,6 +39,7 @@ from config import (
     COMEBACK_GIFT_PER_DAY,
     COMEBACK_GIFT_MAX_COINS,
     NEAR_MISS_MIN_RANK,
+    GUILD_ID,
 )
 from scoring import MessageContext, calculate_score, extract_quality_signals
 from ranks import get_rank_for_score, get_next_rank, RANK_BY_TIER, make_progress_bar
@@ -78,6 +79,11 @@ class ScoringHandler(commands.Cog):
         self._last_message_content: dict[int, tuple[str, float]] = {}
         # Bonus drops: user_id -> multiplier (for next message)
         self._pending_bonus_drops: dict[int, float] = {}
+        # Welcome Wagon: track which new member first-messages have been replied to
+        # Maps new_member_user_id -> set of replier_user_ids who got the bonus
+        self._welcome_wagon_replies: dict[int, set[int]] = {}
+        # Conversation starter: track message_id -> (author_id, reply_count, bonus_awarded)
+        self._conversation_starters: dict[int, list] = {}  # msg_id -> [author_id, reply_count, awarded, timestamp]
 
     def _check_cooldown(self, user_id: int) -> bool:
         """Returns True if the user is on cooldown (should NOT be scored)."""
@@ -382,11 +388,87 @@ class ScoringHandler(commands.Cog):
         if achievements_cog:
             await achievements_cog.check_achievements(user_id, message.guild, message.channel)
 
-        # ── Season XP (50% of message score) ─────────────────────────
+        # ── Season XP (50% of raw score, before diminishing returns) ──
 
         season_cog = self.bot.get_cog("SeasonPass")
         if season_cog:
-            await season_cog.add_season_xp(user_id, max(1, int(final_points * 0.5)))
+            # Use base * social * temporal * meta (skip engagement layer's DR)
+            raw_season_base = result.base_score * result.social_mult * result.temporal_mult * result.meta_mult
+            await season_cog.add_season_xp(user_id, max(1, int(raw_season_base * 0.5)))
+
+        # ── Mega Event multiplier (if active) ────────────────────────
+
+        mega_cog = self.bot.get_cog("MegaEvents")
+        if mega_cog:
+            event_mult = mega_cog.active_event_multiplier
+            if event_mult > 1.0:
+                final_points *= event_mult
+
+        # ── Welcome Wagon: reward users who reply to new members ─────
+
+        if is_reply and message.reference and message.reference.message_id:
+            try:
+                parent_msg = message.reference.cached_message
+                if parent_msg is None:
+                    parent_msg = await message.channel.fetch_message(message.reference.message_id)
+                if parent_msg and not parent_msg.author.bot:
+                    parent_user = await get_or_create_user(parent_msg.author.id, str(parent_msg.author))
+                    # Check if the parent author is a new member (joined < 48h, score < 50)
+                    parent_joined = datetime.fromisoformat(parent_user["joined_at"])
+                    is_new_member = (
+                        (datetime.utcnow() - parent_joined).total_seconds() < 172800
+                        and parent_user["total_score"] < 50
+                    )
+                    if is_new_member:
+                        wagon_set = self._welcome_wagon_replies.setdefault(parent_msg.author.id, set())
+                        if user_id not in wagon_set and len(wagon_set) < 3:
+                            wagon_set.add(user_id)
+                            # Award 10 bonus points + 5 Circles to the replier
+                            await update_user_score(user_id, 10)
+                            await add_coins(user_id, 5)
+                            try:
+                                await message.add_reaction("👋")
+                            except discord.HTTPException:
+                                pass
+                            # Clean up old entries (keep only last 50 new members)
+                            if len(self._welcome_wagon_replies) > 50:
+                                oldest_key = next(iter(self._welcome_wagon_replies))
+                                del self._welcome_wagon_replies[oldest_key]
+            except (discord.NotFound, discord.HTTPException):
+                pass
+
+        # ── Conversation Starter: retroactive bonus for popular messages ──
+
+        # Track this message for potential future bonus
+        self._conversation_starters[message.id] = [user_id, 0, False, time.time()]
+        # Clean old entries (older than 1 hour)
+        cutoff_ts = time.time() - 3600
+        self._conversation_starters = {
+            k: v for k, v in self._conversation_starters.items()
+            if v[3] > cutoff_ts
+        }
+        # Check if this reply triggers a bonus for the parent
+        if is_reply and message.reference and message.reference.message_id:
+            parent_id = message.reference.message_id
+            if parent_id in self._conversation_starters:
+                starter = self._conversation_starters[parent_id]
+                starter[1] += 1  # increment reply count
+                if starter[1] >= 3 and not starter[2]:
+                    # 3+ replies within the hour — award conversation starter bonus
+                    starter[2] = True
+                    starter_user_id = starter[0]
+                    await update_user_score(starter_user_id, 25)
+                    await add_coins(starter_user_id, 10)
+                    starter_member = message.guild.get_member(starter_user_id)
+                    if starter_member:
+                        try:
+                            await message.channel.send(
+                                f"🗣️ **CONVERSATION STARTER** — {starter_member.mention}'s message "
+                                f"sparked a discussion! +25 pts +10 🪙",
+                                delete_after=15,
+                            )
+                        except discord.HTTPException:
+                            pass
 
         # ── Variable reward rolls (post-scoring) ─────────────────────
 

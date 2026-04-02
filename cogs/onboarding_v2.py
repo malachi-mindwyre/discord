@@ -28,6 +28,7 @@ from database import (
     unlock_achievement,
     update_onboarding_stage,
 )
+from dm_coordinator import can_dm as global_can_dm, record_dm as global_record_dm
 
 logger = logging.getLogger("circle.onboarding_v2")
 
@@ -96,10 +97,16 @@ def _seconds_since(iso_str: str) -> float:
     return (datetime.utcnow() - joined).total_seconds()
 
 
-async def _safe_dm(member: discord.Member, embed: discord.Embed) -> bool:
-    """Send a DM embed. Returns True on success, False if DMs are disabled."""
+async def _safe_dm(member: discord.Member, embed: discord.Embed, *, skip_coordinator: bool = False) -> bool:
+    """Send a DM embed. Returns True on success, False if DMs are disabled.
+    Checks global DM coordinator to prevent cross-cog DM fatigue."""
+    if not skip_coordinator:
+        if not await global_can_dm(member.id, "onboarding_v2"):
+            logger.debug("DM to %s blocked by global coordinator", member.id)
+            return False
     try:
         await member.send(embed=embed)
+        await global_record_dm(member.id, "onboarding_v2")
         return True
     except (discord.Forbidden, discord.HTTPException) as exc:
         logger.warning("Could not DM %s (%s): %s", member, member.id, exc)
@@ -288,7 +295,7 @@ class OnboardingV2(commands.Cog):
         )
         embed.set_footer(text="The Circle — 7-Day Onboarding")
 
-        sent = await _safe_dm(member, embed)
+        sent = await _safe_dm(member, embed, skip_coordinator=True)
         if sent:
             await _record_dm(member.id, STAGE_WELCOME, dm_log, new_stage="welcomed")
             logger.info("Sent welcome DM to %s (%s)", member, member.id)

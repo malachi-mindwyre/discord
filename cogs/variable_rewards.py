@@ -89,14 +89,24 @@ class VariableRewards(commands.Cog):
     #  1. PROGRESSIVE JACKPOT
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+    def _get_scaled_trigger_chance(self) -> float:
+        """Scale jackpot trigger chance for small servers.
+        Doubles the chance when < 100 members to ensure first jackpot
+        happens within ~20 days instead of ~40 at small scale."""
+        guild = self.bot.get_guild(GUILD_ID)
+        member_count = guild.member_count if guild else 50
+        if member_count < 100:
+            return JACKPOT_TRIGGER_CHANCE * 2.0
+        return JACKPOT_TRIGGER_CHANCE
+
     async def check_jackpot(self, user_id: int, channel: discord.TextChannel):
         """Called by scoring_handler on every scored message.
         Contributes to the pot and rolls for a jackpot win."""
         # Contribute to the pot
         await update_jackpot_pot(JACKPOT_CONTRIBUTION_PER_MESSAGE)
 
-        # Roll the dice
-        if random.random() >= JACKPOT_TRIGGER_CHANCE:
+        # Roll the dice (scaled for server size)
+        if random.random() >= self._get_scaled_trigger_chance():
             return  # No win this time
 
         # Check minimum pot threshold

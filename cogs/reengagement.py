@@ -17,6 +17,7 @@ from discord.ext import commands, tasks
 
 from config import EMBED_COLOR_PRIMARY, EMBED_COLOR_ACCENT, GUILD_ID
 from database import DB_PATH, get_inactive_users, get_user, get_streak, get_onboarding_state
+from dm_coordinator import can_dm as global_can_dm, record_dm as global_record_dm, ensure_dm_table as ensure_dm_coordinator_table
 from ranks import get_rank_for_score, get_next_rank, RANK_BY_TIER
 
 logger = logging.getLogger("circle.reengagement")
@@ -260,8 +261,8 @@ class Reengagement(commands.Cog):
             "\ud83d\udd25 YOU'RE MISSING OUT",
             (
                 f"{channel_text} is going off right now. {friend_text} posted.\n\n"
-                f"\u26a1 **5x comeback bonus** is waiting for you. Every message "
-                f"counts 5x. Don't waste it.\n"
+                f"\u26a1 **3x comeback bonus** is waiting for you. Every message "
+                f"counts 3x. Don't waste it.\n"
                 f"\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
             ),
             accent=True,
@@ -289,12 +290,12 @@ class Reengagement(commands.Cog):
         )
 
     async def _build_day7(self, member: discord.Member) -> discord.Embed:
-        """Day 7: 5x comeback window announcement."""
+        """Day 7: 3x comeback window announcement."""
         return _keeper_embed(
-            "\u26a1 5x COMEBACK WINDOW ACTIVE",
+            "\u26a1 3x COMEBACK WINDOW ACTIVE",
             (
-                "Every single message you send = **5x points**.\n\n"
-                "This window expires in **7 days**. After that, the multiplier drops.\n\n"
+                "Every single message you send = **3x points**.\n\n"
+                "Return before Day 30 and this becomes **5x**. After Day 60, it drops to **3x** permanently.\n\n"
                 "The Circle rewards those who return. Don't let it slip.\n"
                 "\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
             ),
@@ -302,24 +303,22 @@ class Reengagement(commands.Cog):
         )
 
     async def _build_day14(self, member: discord.Member, user_data: dict) -> discord.Embed:
-        """Day 14: Score decay warning."""
+        """Day 14: Pre-decay warning — decay starts at Day 30."""
         current_score = user_data["total_score"]
-        # Estimate what score was ~14 days ago (rough: 2% daily decay for ~14 days)
-        estimated_old = current_score * (1.02 ** 14)
 
         return _keeper_embed(
-            "\ud83d\udcc9 YOUR SCORE IS DECAYING",
+            "\ud83d\udcc9 DECAY IS COMING",
             (
-                f"Your score has dropped from **{estimated_old:,.0f}** to **{current_score:,.0f}**.\n\n"
-                f"Every day you're gone, you lose more.\n"
-                f"\u26a1 **5x comeback bonus** is still active \u2014 but not for long.\n"
+                f"Your score is **{current_score:,.0f}** — for now.\n\n"
+                f"At Day 30, score decay begins. **0.5% per day**, accelerating to **5% per day** the longer you're gone.\n\n"
+                f"\u26a1 **3x comeback bonus** is still active. Return now before it gets worse.\n"
                 f"\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
             ),
             accent=True,
         )
 
     async def _build_day30(self, member: discord.Member, user_data: dict) -> discord.Embed:
-        """Day 30: Nostalgia — their legacy in The Circle."""
+        """Day 30: Nostalgia — their legacy in The Circle. Peak 5x window."""
         streak_data = await get_streak(member.id)
         badges = await _get_achievements_count(member.id)
         rank_info = RANK_BY_TIER.get(user_data["current_rank"])
@@ -332,8 +331,8 @@ class Reengagement(commands.Cog):
                 f"\ud83d\udd25 Longest streak: **{streak_data['longest_streak']} days**\n"
                 f"\ud83c\udfc5 Badges earned: **{badges}**\n"
                 f"\ud83d\udc51 Rank reached: **{rank_name}**\n"
-                f"\ud83d\udcca Score: **{user_data['total_score']:,.0f}**\n\n"
-                f"This is your **last 5x window**. After this, comeback bonus drops to **3x**.\n\n"
+                f"\ud83d\udcca Score: **{user_data['total_score']:,.0f}** (decaying daily)\n\n"
+                f"Right now you have the **peak 5x comeback bonus**. After Day 60, it drops to **3x** permanently.\n\n"
                 f"Keeper doesn't forget. But Keeper stops asking.\n"
                 f"\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501"
             ),
@@ -345,7 +344,7 @@ class Reengagement(commands.Cog):
             "\u26ab FINAL TRANSMISSION",
             (
                 "This is the last time Keeper reaches out.\n\n"
-                "If you return, you'll still get a **2x bonus** \u2014 forever.\n"
+                "If you return, you'll still get a **3x bonus**.\n"
                 "But The Circle moves on. New faces. New legends.\n\n"
                 "Your seat stays empty unless you fill it.\n\n"
                 "*\u2014 Keeper*\n"
@@ -432,6 +431,9 @@ class Reengagement(commands.Cog):
             # ── DM Tiers (Day 2+) ───────────────────────────────────────
             if not await _can_dm(user_id):
                 continue
+            # Also check global DM coordinator (cross-cog rate limiting)
+            if not await global_can_dm(user_id, "reengagement"):
+                continue
 
             embed: Optional[discord.Embed] = None
 
@@ -464,6 +466,7 @@ class Reengagement(commands.Cog):
             # Send the DM
             try:
                 await member.send(embed=embed)
+                await global_record_dm(user_id, "reengagement")
                 logger.info(
                     "Reengagement DM sent: user=%s tier=%s days_inactive=%d",
                     user_id, tier_id, days_inactive,
@@ -513,4 +516,5 @@ class Reengagement(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await _ensure_table()
+    await ensure_dm_coordinator_table()
     await bot.add_cog(Reengagement(bot))

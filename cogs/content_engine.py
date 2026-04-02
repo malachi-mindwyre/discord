@@ -508,7 +508,8 @@ class ContentEngine(commands.Cog):
 
     @tasks.loop(minutes=15)
     async def dead_zone_detector(self):
-        """If the server is silent for too long during peak hours, drop content."""
+        """If the server is silent for too long during peak hours, drop content.
+        Quiet mode: at < 15 members, only trigger if 2+ users were active recently."""
         now = datetime.now(timezone.utc)
         hour = now.hour
 
@@ -531,6 +532,18 @@ class ContentEngine(commands.Cog):
         guild = self.bot.guilds[0] if self.bot.guilds else None
         if not guild:
             return
+
+        # Quiet mode: at small scale, only break silence if someone is around
+        if guild.member_count and guild.member_count < 15:
+            recent_cutoff = (now - timedelta(hours=4)).isoformat()
+            async with aiosqlite.connect(DB_PATH) as db:
+                cursor = await db.execute(
+                    "SELECT COUNT(DISTINCT user_id) FROM messages WHERE timestamp > ?",
+                    (recent_cutoff,),
+                )
+                recent_users = (await cursor.fetchone())[0]
+            if recent_users < 2:
+                return  # Nobody around to respond — don't shout into the void
 
         # Post in #general
         channel = discord.utils.get(guild.text_channels, name="general")

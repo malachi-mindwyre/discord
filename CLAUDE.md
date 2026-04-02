@@ -1,7 +1,7 @@
 # The Circle — Discord Bot Project
 
 ## What This Is
-A custom Discord bot called **"Keeper"** for a social server called **"The Circle"**. Built in Python (discord.py) with SQLite, deployed on a Raspberry Pi 5. Keeper is a scientifically-designed engagement machine with a 6-layer scoring engine, 100-tier rank progression, 46 feature cogs, variable reward psychology, social graph engineering, seasonal battle passes, and multi-dimensional anti-churn systems. ~17,000 lines of code.
+A custom Discord bot called **"Keeper"** for a social server called **"The Circle"**. Built in Python (discord.py) with SQLite, deployed on a Raspberry Pi 5. Keeper is a scientifically-designed engagement machine with a 6-layer scoring engine, 100-tier rank progression, 48 feature cogs, variable reward psychology, social graph engineering, seasonal battle passes, and multi-dimensional anti-churn systems. ~18,000 lines of code.
 
 **Target audience:** Mixed 18-35 demographic. Dark luxury branding. Gamified social community.
 
@@ -33,7 +33,7 @@ A custom Discord bot called **"Keeper"** for a social server called **"The Circl
 - **Database:** SQLite via aiosqlite (file: `circle.db`)
 - **Hosting:** Raspberry Pi 5
 - **Bot Token:** stored in `.env` (not committed)
-- **Total Cogs:** 46 (all loaded successfully)
+- **Total Cogs:** 48 (all loaded successfully)
 - **Total DB Tables:** ~50
 
 ## Raspberry Pi Access
@@ -50,7 +50,7 @@ A custom Discord bot called **"Keeper"** for a social server called **"The Circl
 SSHPASS='insanebeef45' sshpass -e ssh -o PreferredAuthentications=password pi5@192.168.10.177
 
 # Push ALL project files to Pi
-tar czf - bot.py config.py database.py scoring.py ranks.py setup_server.py cogs/*.py | SSHPASS='insanebeef45' sshpass -e ssh -o PreferredAuthentications=password pi5@192.168.10.177 "cd ~/discord && tar xzf -"
+tar czf - bot.py config.py database.py scoring.py ranks.py setup_server.py dm_coordinator.py cogs/*.py | SSHPASS='insanebeef45' sshpass -e ssh -o PreferredAuthentications=password pi5@192.168.10.177 "cd ~/discord && tar xzf -"
 
 # Restart Keeper
 SSHPASS='insanebeef45' sshpass -e ssh -o PreferredAuthentications=password pi5@192.168.10.177 "echo 'insanebeef45' | sudo -S systemctl restart circle-bot"
@@ -65,7 +65,7 @@ SSHPASS='insanebeef45' sshpass -e ssh -o PreferredAuthentications=password pi5@1
 SSHPASS='insanebeef45' sshpass -e ssh -o PreferredAuthentications=password pi5@192.168.10.177 "echo 'insanebeef45' | sudo -S journalctl -u circle-bot -f"
 
 # Full deploy (push + restart + verify)
-tar czf - bot.py config.py database.py scoring.py ranks.py setup_server.py cogs/*.py | SSHPASS='insanebeef45' sshpass -e ssh -o PreferredAuthentications=password pi5@192.168.10.177 "cd ~/discord && tar xzf -" && SSHPASS='insanebeef45' sshpass -e ssh -o PreferredAuthentications=password pi5@192.168.10.177 "echo 'insanebeef45' | sudo -S systemctl restart circle-bot 2>&1 && sleep 3 && echo 'insanebeef45' | sudo -S journalctl -u circle-bot --no-pager -n 10"
+tar czf - bot.py config.py database.py scoring.py ranks.py setup_server.py dm_coordinator.py cogs/*.py | SSHPASS='insanebeef45' sshpass -e ssh -o PreferredAuthentications=password pi5@192.168.10.177 "cd ~/discord && tar xzf -" && SSHPASS='insanebeef45' sshpass -e ssh -o PreferredAuthentications=password pi5@192.168.10.177 "echo 'insanebeef45' | sudo -S systemctl restart circle-bot 2>&1 && sleep 3 && echo 'insanebeef45' | sudo -S journalctl -u circle-bot --no-pager -n 10"
 ```
 
 ## Bot Personality -- "Keeper"
@@ -138,7 +138,7 @@ final_score = BASE * SOCIAL * TEMPORAL * ENGAGEMENT * META
 ### Post-Score Integrations (all wired in scoring_handler.py)
 - **Surprise 2x XP window:** If `VariableRewards.is_double_xp` is active, all points doubled
 - **Personal XP boosts:** Checks `active_boosts` table for shop/wheel-granted multipliers
-- **Season XP:** 50% of message score flows to `season_pass.add_season_xp()`
+- **Season XP:** 50% of raw score (pre-diminishing-returns) flows to `season_pass.add_season_xp()`
 - **Variable rewards delegation:** Jackpot contribution + mystery drops via `variable_rewards.on_scored_message()`
 - **Welcome-back gift:** Comeback users get 50-500 Circles scaling with days absent
 
@@ -210,7 +210,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 
 ---
 
-## ALL 45 COGS
+## ALL 48 COGS
 
 ### Phase 1: Core (14 cogs)
 | Cog | File | Purpose |
@@ -251,7 +251,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Buddy System | `cogs/buddy_system.py` | Mentor pairing, 10-msg goal in 48h |
 | Daily Rewards | `cogs/daily_rewards.py` | Escalating login rewards, streak reset on miss |
 
-### Phase 3: Ultimate Engagement Engine (15 cogs)
+### Phase 3: Ultimate Engagement Engine (17 cogs)
 | Cog | File | Purpose |
 |---|---|---|
 | Onboarding v2 | `cogs/onboarding_v2.py` | **7-day staged pipeline**: T+5s quest DM (4 quests with endowed progress — joining counts as #1), T+2hr progress, T+4hr streak anchor, T+24h check-in, T+48h momentum, T+72h milestone tease, Day 6 report card (positive framing), Day 7 graduation ceremony + Survivor badge + 100 Circles. **Fallback:** posts in #general if DMs disabled. T+5min nudge removed (too aggressive). |
@@ -270,6 +270,8 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Health Check | `cogs/healthcheck.py` | Automated self-test: 23 checks (DB, tables, cogs, channels, categories, background tasks, scoring engine, config, data health, permissions). Runs every 6h + `!healthcheck` command |
 | Oracle | `cogs/oracle.py` | Evening prediction ritual — Keeper's Oracle posts daily at 9 PM UTC with cryptic predictions. 200+ templates, 7-day no-repeat. `!oracle` command |
 | Metrics | `cogs/metrics.py` | Retention analytics dashboard — DAU/MAU, D1/D7/D30 cohort retention, churn rate, **onboarding funnel tracking** (joined→welcomed→messaged→graduated). Daily snapshots to `metrics_daily` table. `!metrics` admin command |
+| Mega Events | `cogs/mega_events.py` | **Monthly mega events**: The Purge (no DR, 1.5x), Circle Games (2x social, 3x Quick Fire), Community Build (3x invites). One per month, 3-7 days. `active_event_multiplier` property for scoring. |
+| Time Capsules | `cogs/time_capsules.py` | `!timecapsule <message>` sealed for 90 days, then revealed via DM + #general announcement. Max 3 per user. `!capsules` to view active capsules. |
 
 ---
 
@@ -315,6 +317,8 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!help` | leaderboard | Full command reference |
 | `!faction` | factions | Faction standings |
 | `!oracle` | oracle | Today's Oracle prediction |
+| `!timecapsule <msg>` | time_capsules | Seal a message for 90 days |
+| `!capsules` | time_capsules | View your active time capsules |
 
 ### Admin Commands
 | Command | Cog | Description |
@@ -349,7 +353,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Critical Hit | 2% per message | 2x points on that message |
 | Near Miss | 1% per message (Regular+ only) | "Almost got a bonus!" message (auto-deletes) |
 | Bonus Drop | 2% per message | Next message gets hidden 2-10x multiplier |
-| Progressive Jackpot | 0.05% per message (min pot 100) | Win entire pot (avg 500-1000 Circles) |
+| Progressive Jackpot | 0.05% per message (0.1% at <100 members) | Win entire pot (avg 500-1000 Circles) |
 | Surprise 2x Window | Random every 4-8 hours | 15-30 min server-wide double XP |
 | Mystery Drop | Every 100 server messages | Random reward to the 100th sender |
 | Daily Wheel | `!spin` once/day | Coins, XP boosts, streak freeze, or jackpot |
@@ -365,6 +369,53 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 - **Rivals:** 4-week declared rivalry, weekly score comparison, winner gets 25 Circles
 - **Icebreakers:** New members with < 3 connections get matched every 12h with Connection Quests
 - **Circles:** Friend groups of 3-8, weekly competition, top Circle wins role color + coins
+
+---
+
+## DM COORDINATOR (Cross-Cog Rate Limiter)
+
+All DM-sending cogs check `dm_coordinator.py` before sending:
+- **Max 1 DM per 12 hours** from any cog
+- **Max 3 DMs per 7 days** total across all cogs
+- Wired into: `onboarding_v2`, `reengagement`, `loss_aversion`
+- Welcome DM (T+5s) bypasses the coordinator — always goes through
+- Auto-cleans entries older than 30 days
+
+---
+
+## WELCOME WAGON & CONVERSATION STARTER
+
+### Welcome Wagon
+- First 3 users who reply to a new member's first message get **+10 pts + 5 Circles**
+- New member = joined < 48h + score < 50
+- Reply gets a 👋 reaction as visual feedback
+
+### Conversation Starter
+- If your message receives **3+ replies within 1 hour**, you get a retroactive **+25 pts + 10 Circles**
+- Public announcement in channel: "CONVERSATION STARTER — @user's message sparked a discussion!"
+
+---
+
+## MONTHLY MEGA EVENTS
+
+| Event | Week | Duration | Effect |
+|---|---|---|---|
+| The Purge | Week 1 | 3 days | No diminishing returns, 1.5x everything |
+| The Circle Games | Week 2 | 5 days | Social multipliers 2x, Quick Fire 3x |
+| Community Build | Week 3 | 7 days | Invite bonuses 3x, milestones halved |
+
+- One event per month max
+- `MegaEvents.active_event_multiplier` checked by scoring_handler
+- Dramatic announcement + summary embeds
+
+---
+
+## TIME CAPSULES
+
+- `!timecapsule <message>` — seal a message for 90 days (max 500 chars, max 3 per user)
+- `!capsules` — view your active capsules and reveal dates
+- Background task checks every 6h for capsules to reveal
+- Reveal: DM to user with nostalgia embed + brief #general announcement
 
 ---
 
@@ -427,6 +478,8 @@ Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM -> Day 14 D
 
 **Audit Fix:** metrics_daily, oracle_log, connection_quests, quick_fire_log, quick_fire_replies, confession_reports
 
+**Audit Fix 2:** dm_coordinator, mega_events, time_capsules
+
 ---
 
 ## FILE STRUCTURE
@@ -484,8 +537,11 @@ discord/
 │   ├── trivia.py
 │   ├── variable_rewards.py -- NEW: Jackpot, crits, bonus drops
 │   ├── voice_xp.py
+│   ├── mega_events.py      -- NEW: Monthly mega events (The Purge, etc.)
+│   ├── time_capsules.py    -- NEW: !timecapsule sealed 90 days
 │   ├── weekly_recap.py
 │   └── welcome.py
+├── dm_coordinator.py   -- NEW: Cross-cog DM rate limiter (1/12h, 3/7d)
 ├── deploy/             -- circle-bot.service (systemd)
 ├── prompts/            -- LLM prompts for engagement design
 ├── requirements.txt    -- discord.py, python-dotenv, aiosqlite
@@ -532,7 +588,7 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 4. ~~**Enhanced weekly recap:**~~ **BUILT** — `weekly_recap.py` now posts a multi-embed "Sunday Ceremony" with stats overview, streak hall (daily + paired), social bonds (best friend pair + voice hours), and faction standings (conditional).
 5. **Enhanced profiles:** Plan calls for display titles, legacy timeline, activity crown. Config exists (DISPLAY_TITLES, RANK_PERKS) but not wired into profiles.py.
 6. ~~**Oracle system:**~~ **BUILT** — `cogs/oracle.py` posts daily at 9 PM UTC, 200+ templates, 7-day no-repeat, `!oracle` command.
-7. **Time capsules:** Quarterly `!timecapsule <message>` with reveal 3 months later. Table exists, cog not built.
+7. ~~**Time capsules:**~~ **BUILT** — `cogs/time_capsules.py` implements `!timecapsule` and `!capsules`. 90-day seal, DM reveal + #general announcement.
 8. **Hidden moderation layer:** Invisible reputation score (config exists: MOD_REPUTATION_*). Not yet implemented.
 9. ~~**First-reply detection:**~~ **FIXED** — `parent_message_id` column added to messages table. `is_first_reply_to_message()` now does a real DB lookup instead of the 30% random heuristic. `log_message()` stores parent_message_id for replies.
 10. ~~**XP boost not fully wired:**~~ **FIXED** — scoring_handler now checks `active_boosts` table AND `VariableRewards.is_double_xp` for surprise 2x windows. Season XP also wired (50% of message score). Variable rewards delegation (mystery drops) connected.
@@ -545,7 +601,7 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 **The bot runs on the Pi, not locally.** After ANY code changes:
 1. Push all modified files via tar over SSH
 2. Restart the circle-bot systemd service
-3. Check logs to verify ALL 46 cogs loaded successfully
+3. Check logs to verify ALL 48 cogs loaded successfully
 4. If any cog fails to load, fix it before ending the session
 
 ### 2. Keep Documentation Updated

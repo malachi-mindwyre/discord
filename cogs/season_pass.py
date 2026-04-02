@@ -34,14 +34,15 @@ SEASON_EARLY_BIRD_HOURS = 48
 SEASON_EARLY_BIRD_MULT = 2.0
 OFF_SEASON_DAYS = 7
 
-# XP required per tier (exponential curve).  Tier 1 = 0 XP, tier 50 ≈ 50k total.
-# Each tier costs slightly more than the last.
+# XP required per tier (flattened exponential curve).
+# Base 1.045 gives ~20k total XP for tier 50, achievable in 8 weeks
+# with daily messages (~75/day) + challenges (3 weekly @ 1500 + 1 daily @ 250).
 _TIER_XP: list[int] = []
 for _t in range(SEASON_PASS_TIERS):
     if _t == 0:
         _TIER_XP.append(0)
     else:
-        _TIER_XP.append(int(100 * (1.08 ** _t)))
+        _TIER_XP.append(int(80 * (1.045 ** _t)))
 
 TIER_CUMULATIVE_XP: list[int] = []
 _running = 0

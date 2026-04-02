@@ -38,6 +38,7 @@ from database import (
     set_user_score,
     get_messages_today_count,
 )
+from dm_coordinator import can_dm as global_can_dm, record_dm as global_record_dm
 from ranks import get_rank_for_score, RANK_BY_TIER, ALL_RANKS
 
 logger = logging.getLogger(__name__)
@@ -381,6 +382,10 @@ class LossAversion(commands.Cog):
             if not member:
                 continue
 
+            # Check global DM coordinator before sending
+            if not await global_can_dm(user_id, "loss_aversion"):
+                continue
+
             embed = discord.Embed(
                 title="🔥 STREAK AT RISK — FINAL WARNING",
                 description=(
@@ -395,6 +400,7 @@ class LossAversion(commands.Cog):
 
             try:
                 await member.send(embed=embed)
+                await global_record_dm(user_id, "loss_aversion")
                 self._streak_dm_sent_today[user_id] = self._streak_dm_sent_today.get(user_id, 0) + 1
             except (discord.HTTPException, discord.Forbidden):
                 pass
