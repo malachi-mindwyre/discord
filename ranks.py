@@ -56,7 +56,8 @@ def _generate_thresholds() -> list[int]:
     for level in range(2, 101):
         # RS-style: each rank's point requirement grows exponentially
         # The 2^(level/7) term drives the exponential acceleration
-        diff = max(1, int((level + 300 * (2 ** (level / 7.0))) / 32))
+        # Base floor of 50 per rank ensures early ranks aren't trivial
+        diff = max(50, int((level + 300 * (2 ** (level / 7.0))) / 32))
         total += diff
         thresholds.append(total)
     return thresholds

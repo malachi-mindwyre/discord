@@ -428,8 +428,13 @@ class ScoringHandler(commands.Cog):
 
         if ranked_up:
             await log_rank_change(user_id, old_rank_tier, new_rank.tier)
-            await self._announce_rankup(message, new_rank, new_total)
             await self._update_role(message.guild, message.author, old_rank_tier, new_rank.tier)
+            # Only announce rank-ups at group boundaries (every 10th tier)
+            # to prevent spam — sub-rank changes are silent
+            old_group = (old_rank_tier - 1) // 10
+            new_group = (new_rank.tier - 1) // 10
+            if new_group > old_group:
+                await self._announce_rankup(message, new_rank, new_total)
 
         # ── Check achievements ───────────────────────────────────────
 
