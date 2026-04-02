@@ -182,6 +182,8 @@ class HealthCheck(commands.Cog):
             "faction_treasury", "faction_loyalty", "seasons", "season_progress",
             "prestige", "user_engagement_tier", "legacy_events", "mod_reputation",
             "combo_tracker", "channel_diversity", "kudos", "rivals", "active_boosts",
+            # Phase 4 (audit fixes)
+            "metrics_daily", "connection_quests", "oracle_log",
         ]
 
         results = []
@@ -220,12 +222,12 @@ class HealthCheck(commands.Cog):
             "Onboarding", "Introductions", "Confessions", "Starboard",
             "InviteReminders", "GrowthNudges", "EngagementTriggers", "Economy",
             "Shop", "AutoEvents", "Trivia", "ServerGoals", "Profiles",
-            "Factions", "SmartDM", "BuddySystem", "DailyRewards",
+            "Factions", "BuddySystem", "DailyRewards",
             # Phase 3
             "OnboardingV2", "StreaksV2", "Reengagement", "LossAversion",
             "VariableRewards", "DailyWheel", "SocialGraph", "Circles",
             "ContentEngine", "Debates", "SeasonPass", "Prestige",
-            "EngagementLadder", "HealthCheck",
+            "EngagementLadder", "HealthCheck", "Oracle", "Metrics",
         ]
 
         loaded_cogs = set(self.bot.cogs.keys())

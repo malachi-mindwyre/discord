@@ -118,8 +118,8 @@ def _compute_base(ctx: MessageContext) -> float:
     if ctx.has_punctuation:
         quality += SCORE_QUALITY_PUNCTUATION
 
-    # Question bonus (drives replies)
-    if ctx.contains_question:
+    # Question bonus (drives replies, requires min 3 words to prevent "?" spam)
+    if ctx.contains_question and ctx.word_count >= 3:
         quality += SCORE_QUALITY_QUESTION
 
     return (base + word_score + media_score + link_score) * quality

@@ -560,7 +560,17 @@ class StreaksV2(commands.Cog):
                         # Announce milestone
                         await self._announce_paired_milestone(user_a, user_b, current, reward)
                 else:
-                    current = 0
+                    # Check if freeze tokens can save the paired streak
+                    freeze_saved = False
+                    if current > 0:
+                        for uid, was_active in [(user_a, a_active), (user_b, b_active)]:
+                            if not was_active:
+                                tokens = await _get_freeze_tokens(db, uid)
+                                if tokens > 0:
+                                    await _set_freeze_tokens(db, uid, tokens - 1)
+                                    freeze_saved = True
+                    if not freeze_saved:
+                        current = 0
 
                 await db.execute(
                     """UPDATE paired_streaks

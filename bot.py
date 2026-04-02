@@ -61,7 +61,7 @@ COG_EXTENSIONS = [
     "cogs.server_goals",
     "cogs.profiles",
     "cogs.factions",
-    "cogs.smart_dm",
+    # "cogs.smart_dm",             # Superseded by reengagement.py
     "cogs.buddy_system",
     "cogs.daily_rewards",
     # ─── Phase 3 (Ultimate Engagement Engine) ────────────
@@ -79,6 +79,8 @@ COG_EXTENSIONS = [
     "cogs.prestige",               # Prestige system (endgame)
     "cogs.engagement_ladder",      # Lurker-to-evangelist pipeline
     "cogs.healthcheck",            # Self-test + !healthcheck command
+    "cogs.oracle",                 # Evening prediction ritual
+    "cogs.metrics",                # Retention analytics dashboard
 ]
 
 

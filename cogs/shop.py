@@ -5,12 +5,13 @@ Shop UI, purchasing permanent and rotating items, mystery boxes.
 
 from __future__ import annotations
 
+import logging
 import random
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import aiosqlite
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from config import (
     EMBED_COLOR_PRIMARY,
@@ -19,13 +20,77 @@ from config import (
     ECONOMY_CURRENCY_EMOJI,
     SHOP_ITEMS,
     MYSTERY_BOX_LOOT_TABLE,
+    ROTATING_SHOP_POOL,
+    ROTATING_SHOP_ITEMS_PER_DAY,
 )
 from database import DB_PATH
+
+logger = logging.getLogger("circle.shop")
 
 
 class Shop(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    async def cog_load(self):
+        self.rotate_shop_items.start()
+        logger.info("✓ Shop cog loaded — rotating shop task started")
+
+    def cog_unload(self):
+        self.rotate_shop_items.cancel()
+
+    # ── Rotating Shop Task ───────────────────────────────────────────────
+
+    @tasks.loop(hours=24)
+    async def rotate_shop_items(self):
+        """Rotate limited-time shop items daily."""
+        now = datetime.now(timezone.utc)
+
+        async with aiosqlite.connect(DB_PATH) as db:
+            # Remove expired items
+            await db.execute(
+                "DELETE FROM shop_rotating WHERE available_until <= ?",
+                (now.isoformat(),),
+            )
+
+            # Count current active items
+            cursor = await db.execute(
+                "SELECT COUNT(*) FROM shop_rotating WHERE available_until > ?",
+                (now.isoformat(),),
+            )
+            active_count = (await cursor.fetchone())[0]
+
+            # Add new items if needed
+            items_to_add = max(0, ROTATING_SHOP_ITEMS_PER_DAY - active_count)
+            if items_to_add > 0:
+                # Get keys of currently active items
+                cursor = await db.execute(
+                    "SELECT item_key FROM shop_rotating WHERE available_until > ?",
+                    (now.isoformat(),),
+                )
+                active_keys = {row[0] for row in await cursor.fetchall()}
+
+                # Pick new items not already active
+                available = [i for i in ROTATING_SHOP_POOL if i["key"] not in active_keys]
+                random.shuffle(available)
+                chosen = available[:items_to_add]
+
+                for item in chosen:
+                    expires = now + timedelta(hours=item["duration_hours"])
+                    await db.execute(
+                        """INSERT OR REPLACE INTO shop_rotating
+                           (item_key, name, cost, description, available_until, stock_remaining)
+                           VALUES (?, ?, ?, ?, ?, ?)""",
+                        (item["key"], item["name"], item["cost"],
+                         item["desc"], expires.isoformat(), item["stock"]),
+                    )
+                    logger.info("Rotating shop: added %s (expires %s)", item["name"], expires.isoformat())
+
+            await db.commit()
+
+    @rotate_shop_items.before_loop
+    async def before_rotate(self):
+        await self.bot.wait_until_ready()
 
     @commands.command(name="shop")
     async def shop_cmd(self, ctx: commands.Context):

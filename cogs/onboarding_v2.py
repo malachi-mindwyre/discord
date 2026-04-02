@@ -115,11 +115,12 @@ async def _record_dm(user_id: int, stage_key: str, dm_log: list[str], new_stage:
 
 
 def _quest_checklist(state: dict) -> str:
-    """Build a quest checklist string from onboarding state flags."""
+    """Build a quest checklist string from onboarding state flags (4 quests, first auto-done)."""
     intro = "✅" if state.get("intro_posted") else "⬜"
     reply = "✅" if state.get("first_reply_at") else "⬜"
     daily = "✅" if state.get("daily_claimed") else "⬜"
     return (
+        f"✅ Join The Circle → **Done!**\n"
         f"{intro} Post an intro in #introductions → **+{ONBOARDING_QUEST_INTRO_POINTS} pts**\n"
         f"{reply} Reply to someone's message → **3x points**\n"
         f"{daily} Claim `!daily` → **+10 Circles**"
@@ -127,8 +128,8 @@ def _quest_checklist(state: dict) -> str:
 
 
 def _quests_completed(state: dict) -> int:
-    """Count how many of the 3 onboarding quests are complete."""
-    count = 0
+    """Count how many of the 4 onboarding quests are complete (joining counts as 1)."""
+    count = 1  # Joining itself counts
     if state.get("intro_posted"):
         count += 1
     if state.get("first_reply_at"):
@@ -274,12 +275,13 @@ class OnboardingV2(commands.Cog):
                 f"Welcome, **{member.display_name}**. I am **Keeper**, the guardian of this place.\n\n"
                 f"You've entered The Circle. What you do next... determines everything.\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🎯 **YOUR FIRST 3 QUESTS**\n"
+                f"🎯 **YOUR FIRST 4 QUESTS**\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"✅ Join The Circle → **Done!**\n"
                 f"⬜ Post an intro in {intro_mention} → **+{ONBOARDING_QUEST_INTRO_POINTS} pts**\n"
                 f"⬜ Reply to someone's message → **3x points**\n"
                 f"⬜ Type `!daily` in any channel → **+10 Circles** 🪙\n\n"
-                f"Complete all 3 and you'll be ahead of **90%** of new members.\n\n"
+                f"Complete all 4 and you'll be ahead of **90%** of new members.\n\n"
                 f"*The Circle remembers everything. Your journey starts now.*"
             ),
             color=EMBED_COLOR_PRIMARY,
@@ -290,6 +292,26 @@ class OnboardingV2(commands.Cog):
         if sent:
             await _record_dm(member.id, STAGE_WELCOME, dm_log, new_stage="welcomed")
             logger.info("Sent welcome DM to %s (%s)", member, member.id)
+        else:
+            # Fallback: post condensed welcome in #general if DMs are disabled
+            fallback_ch = self._find_channel(guild, "general")
+            if fallback_ch:
+                fallback_embed = discord.Embed(
+                    title=f"⚫ WELCOME, {member.display_name.upper()}",
+                    description=(
+                        f"{member.mention}, I am **Keeper**. Your journey begins now.\n\n"
+                        f"🎯 **Quick Start:** Post an intro in #introductions, "
+                        f"reply to someone, and type `!daily`.\n\n"
+                        f"*Enable DMs from server members for the full onboarding experience.*"
+                    ),
+                    color=EMBED_COLOR_PRIMARY,
+                )
+                try:
+                    await fallback_ch.send(embed=fallback_embed, delete_after=300)
+                except discord.HTTPException:
+                    pass
+            await _record_dm(member.id, STAGE_WELCOME, dm_log, new_stage="welcomed")
+            logger.info("Sent welcome FALLBACK (DMs disabled) for %s (%s)", member, member.id)
 
     async def _send_nudge_5m(self, member: discord.Member, guild: discord.Guild, state: dict):
         """T+5min: If no message yet, nudge about First Words badge."""
@@ -333,7 +355,7 @@ class OnboardingV2(commands.Cog):
         if completed > 0:
             title = "🔥 YOU'RE MOVING"
             desc = (
-                f"**{completed}/3** quests done in your first hour. Not bad, **{member.display_name}**.\n\n"
+                f"**{completed}/4** quests done in your first hour. Not bad, **{member.display_name}**.\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🎯 **QUEST TRACKER**\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -407,7 +429,7 @@ class OnboardingV2(commands.Cog):
             description=(
                 f"It's been 24 hours, **{member.display_name}**.\n\n"
                 f"{stats_line}\n"
-                f"🎯 **{completed}/3** quests complete\n\n"
+                f"🎯 **{completed}/4** quests complete\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🎯 **QUEST STATUS**\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -436,7 +458,7 @@ class OnboardingV2(commands.Cog):
             title = "🚀 MOMENTUM"
             desc = (
                 f"**{member.display_name}**, you're ahead of most.\n\n"
-                f"**{completed}/3** quests done in 48 hours. "
+                f"**{completed}/4** quests done in 48 hours. "
                 f"The average new member? They're still figuring out where to type.\n\n"
                 f"Keep this up for **5 more days** and you'll earn the "
                 f"**🏅 Survivor** badge + **{ONBOARDING_GRADUATION_COINS} Circles** 🪙\n\n"
@@ -512,7 +534,7 @@ class OnboardingV2(commands.Cog):
                 f"━━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"⚡ Total Score: **{total_score:.0f}** pts\n"
                 f"📈 Current Rank: **Tier {current_rank}**\n"
-                f"🎯 Quests Done: **{completed}/3**\n\n"
+                f"🎯 Quests Done: **{completed}/4**\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
                 f"⚠️ **IF YOU LEAVE NOW, YOU LOSE:**\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n\n"

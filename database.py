@@ -1416,3 +1416,30 @@ async def update_onboarding_stage(user_id: int, stage: str, **kwargs):
             vals,
         )
         await db.commit()
+
+
+# ─── Active Boosts ────────────────────────────────────────────────────────
+
+async def get_active_boost(user_id: int) -> float | None:
+    """Return the highest active XP boost multiplier for a user, or None."""
+    now = datetime.utcnow().isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            """SELECT multiplier FROM active_boosts
+               WHERE user_id = ? AND boost_type IN ('xp', 'xp_2x')
+               AND expires_at > ?
+               ORDER BY multiplier DESC LIMIT 1""",
+            (user_id, now),
+        )
+        row = await cursor.fetchone()
+        return row[0] if row else None
+
+
+async def cleanup_expired_boosts():
+    """Delete all expired boost rows."""
+    now = datetime.utcnow().isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "DELETE FROM active_boosts WHERE expires_at <= ?", (now,)
+        )
+        await db.commit()

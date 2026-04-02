@@ -34,8 +34,11 @@ from config import (
     BONUS_DROP_MULTIPLIERS,
     SCORE_FIRST_MOVER_WINDOW_SECONDS,
     ECONOMY_COIN_PER_MESSAGE,
-    JACKPOT_CONTRIBUTION_PER_MESSAGE,
     COMEBACK_BONUS_TIERS,
+    COMEBACK_GIFT_BASE_COINS,
+    COMEBACK_GIFT_PER_DAY,
+    COMEBACK_GIFT_MAX_COINS,
+    NEAR_MISS_MIN_RANK,
 )
 from scoring import MessageContext, calculate_score, extract_quality_signals
 from ranks import get_rank_for_score, get_next_rank, RANK_BY_TIER, make_progress_bar
@@ -56,10 +59,10 @@ from database import (
     get_combo_state,
     update_combo_state,
     add_coins,
-    update_jackpot_pot,
     get_jackpot_pot,
     get_reply_chain_depth,
     is_first_reply_to_message,
+    get_active_boost,
 )
 
 
@@ -73,8 +76,6 @@ class ScoringHandler(commands.Cog):
         self._last_message_content: dict[int, tuple[str, float]] = {}
         # Bonus drops: user_id -> multiplier (for next message)
         self._pending_bonus_drops: dict[int, float] = {}
-        # Track server-wide message counter for mystery drops
-        self._global_message_counter: int = 0
 
     def _check_cooldown(self, user_id: int) -> bool:
         """Returns True if the user is on cooldown (should NOT be scored)."""
@@ -255,6 +256,18 @@ class ScoringHandler(commands.Cog):
 
         final_points = result.points
 
+        # ── Apply server-wide 2x XP window (if active) ──────────────
+
+        vr_cog = self.bot.get_cog("VariableRewards")
+        if vr_cog and vr_cog.is_double_xp:
+            final_points *= 2.0
+
+        # ── Apply personal XP boost (from shop/wheel) ────────────────
+
+        personal_boost = await get_active_boost(user_id)
+        if personal_boost and personal_boost > 1.0:
+            final_points *= personal_boost
+
         # ── Apply bonus drop multiplier (if pending) ─────────────────
 
         bonus_mult = self._pending_bonus_drops.pop(user_id, None)
@@ -306,21 +319,25 @@ class ScoringHandler(commands.Cog):
         # Economy: award coins
         await add_coins(user_id, ECONOMY_COIN_PER_MESSAGE)
 
-        # Jackpot: contribute to pot
-        await update_jackpot_pot(JACKPOT_CONTRIBUTION_PER_MESSAGE)
+        # Delegate to variable rewards (jackpot contribution + mystery drops)
+        if vr_cog:
+            await vr_cog.on_scored_message(user_id, message.channel)
 
         # Track invitee messages for invite validation
         await increment_invitee_messages(user_id)
 
-        # Increment global counter for mystery drops
-        self._global_message_counter += 1
-
-        # ── Handle comeback announcement ─────────────────────────────
+        # ── Handle comeback announcement + gift ──────────────────────
 
         if is_comeback:
+            comeback_gift = min(
+                COMEBACK_GIFT_BASE_COINS + (days_inactive * COMEBACK_GIFT_PER_DAY),
+                COMEBACK_GIFT_MAX_COINS,
+            )
+            await add_coins(user_id, comeback_gift)
             try:
                 await message.channel.send(
-                    KEEPER_COMEBACK.format(mention=message.author.mention)
+                    f"A familiar presence returns... {message.author.mention}, The Circle remembers you.\n"
+                    f"⚡ **{comeback_mult:.0f}x** blessing granted + **{comeback_gift}** 🪙 welcome-back gift."
                 )
             except discord.HTTPException:
                 pass
@@ -338,10 +355,16 @@ class ScoringHandler(commands.Cog):
         if achievements_cog:
             await achievements_cog.check_achievements(user_id, message.guild, message.channel)
 
+        # ── Season XP (50% of message score) ─────────────────────────
+
+        season_cog = self.bot.get_cog("SeasonPass")
+        if season_cog:
+            await season_cog.add_season_xp(user_id, max(1, int(final_points * 0.5)))
+
         # ── Variable reward rolls (post-scoring) ─────────────────────
 
-        # Near-miss (3% chance)
-        if random.random() < NEAR_MISS_CHANCE:
+        # Near-miss (1% chance, Regular+ only)
+        if random.random() < NEAR_MISS_CHANCE and user["current_rank"] >= NEAR_MISS_MIN_RANK:
             try:
                 jackpot_pot = await get_jackpot_pot()
                 msg_text = random.choice(NEAR_MISS_MESSAGES).format(

@@ -1,7 +1,7 @@
 # The Circle — Discord Bot Project
 
 ## What This Is
-A custom Discord bot called **"Keeper"** for a social server called **"The Circle"**. Built in Python (discord.py) with SQLite, deployed on a Raspberry Pi 5. Keeper is a scientifically-designed engagement machine with a 6-layer scoring engine, 100-tier rank progression, 45 feature cogs, variable reward psychology, social graph engineering, seasonal battle passes, and multi-dimensional anti-churn systems. ~16,000 lines of code.
+A custom Discord bot called **"Keeper"** for a social server called **"The Circle"**. Built in Python (discord.py) with SQLite, deployed on a Raspberry Pi 5. Keeper is a scientifically-designed engagement machine with a 6-layer scoring engine, 100-tier rank progression, 46 feature cogs, variable reward psychology, social graph engineering, seasonal battle passes, and multi-dimensional anti-churn systems. ~17,000 lines of code.
 
 **Target audience:** Mixed 18-35 demographic. Dark luxury branding. Gamified social community.
 
@@ -33,7 +33,7 @@ A custom Discord bot called **"Keeper"** for a social server called **"The Circl
 - **Database:** SQLite via aiosqlite (file: `circle.db`)
 - **Hosting:** Raspberry Pi 5
 - **Bot Token:** stored in `.env` (not committed)
-- **Total Cogs:** 45 (all loaded successfully)
+- **Total Cogs:** 46 (all loaded successfully)
 - **Total DB Tables:** ~50
 
 ## Raspberry Pi Access
@@ -210,7 +210,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 |---|---|---|
 | Streaks | `cogs/streaks.py` | Original daily streak tracking (legacy, coexists with v2) |
 | Achievements | `cogs/achievements.py` | 30+ one-time badge unlocks |
-| Scoring Handler | `cogs/scoring_handler.py` | **6-layer scoring engine**, anti-spam, rank-ups, critical hits, bonus drops |
+| Scoring Handler | `cogs/scoring_handler.py` | **6-layer scoring engine**, anti-spam, rank-ups, critical hits, bonus drops, 2x XP window integration, active boost integration, season XP, variable rewards delegation |
 | Leaderboard | `cogs/leaderboard.py` | Auto-updating hourly embed + !rank, !top, !stats |
 | Media Feed | `cogs/media_feed.py` | Scrapes all channels for media -> mirrors to #media-feed |
 | Welcome | `cogs/welcome.py` | Rich embed on member join |
@@ -261,6 +261,8 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Prestige | `cogs/prestige.py` | **Endgame reset** at rank 41+: reset score/rank, keep coins/badges/faction, earn permanent +5% per level (max +25% at prestige 5), 5 prestige levels with escalating coin rewards (2k-50k) |
 | Engagement Ladder | `cogs/engagement_ladder.py` | Tracks user tiers: lurker -> newcomer -> casual -> regular -> power_user -> evangelist. Weekly recalculation, DMs on tier transitions, `!ladder` command |
 | Health Check | `cogs/healthcheck.py` | Automated self-test: 23 checks (DB, tables, cogs, channels, categories, background tasks, scoring engine, config, data health, permissions). Runs every 6h + `!healthcheck` command |
+| Oracle | `cogs/oracle.py` | Evening prediction ritual — Keeper's Oracle posts daily at 9 PM UTC with cryptic predictions. 200+ templates, 7-day no-repeat. `!oracle` command |
+| Metrics | `cogs/metrics.py` | Retention analytics dashboard — DAU/MAU, D1/D7/D30 cohort retention, churn rate. Daily snapshots to `metrics_daily` table. `!metrics` admin command |
 
 ---
 
@@ -304,6 +306,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!setcolor <hex>` | profiles | Set profile accent color |
 | `!help` | leaderboard | Full command reference |
 | `!faction` | factions | Faction standings |
+| `!oracle` | oracle | Today's Oracle prediction |
 
 ### Admin Commands
 | Command | Cog | Description |
@@ -317,6 +320,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!approve <id>` / `!reject <id>` | content_engine | Approve/reject UGC submissions |
 | `!healthcheck` / `!hc` | healthcheck | Run 23 system checks, show full diagnostic |
 | `!cleanup` | setup_server | Fix orphaned channels, remove duplicate categories |
+| `!metrics` | metrics | Show retention dashboard (DAU/MAU, D1/D7/D30 retention) |
 
 ---
 
@@ -448,7 +452,9 @@ discord/
 │   ├── invites.py
 │   ├── leaderboard.py
 │   ├── loss_aversion.py    -- NEW: Decay, demotion, displacement
+│   ├── metrics.py          -- NEW: Retention analytics dashboard
 │   ├── media_feed.py
+│   ├── oracle.py           -- NEW: Evening prediction ritual
 │   ├── onboarding.py
 │   ├── onboarding_v2.py    -- NEW: 7-day staged pipeline
 │   ├── prestige.py         -- NEW: Prestige system
@@ -510,7 +516,7 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 ## KNOWN ISSUES / FUTURE WORK
 
 1. **Legacy cog overlap:** `streaks.py` + `streaks_v2.py` coexist (v2 commands renamed to `!allstreaks`/`!streakboard`). Eventually remove old `streaks.py` and rename v2 commands back.
-2. **Legacy DM overlap:** `smart_dm.py` + `reengagement.py` coexist. Eventually remove `smart_dm.py`.
+2. ~~**Legacy DM overlap:**~~ **FIXED** — `smart_dm.py` disabled, `reengagement.py` is the sole pipeline. Onboarding/re-engagement pipelines deduplicated.
 3. **Factions warfare 2.0:** The plan includes territory control, treasury, loyalty, traitor mechanics. The current `factions.py` is basic. The config constants exist in `config.py` (FACTION_WAR_CHALLENGE_CYCLE, FACTION_TERRITORY_BONUS, etc.) but the cog hasn't been rewritten yet.
 4. **Enhanced weekly recap:** Plan calls for a full "Sunday Ceremony" with faction standings, territory map, Oracle review. Not yet implemented.
 5. **Enhanced profiles:** Plan calls for display titles, legacy timeline, activity crown. Config exists (DISPLAY_TITLES, RANK_PERKS) but not wired into profiles.py.
@@ -518,7 +524,7 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 7. **Time capsules:** Quarterly `!timecapsule <message>` with reveal 3 months later. Table exists, cog not built.
 8. **Hidden moderation layer:** Invisible reputation score (config exists: MOD_REPUTATION_*). Not yet implemented.
 9. **First-reply detection:** Currently uses a 30% random heuristic. Needs parent_message_id column in messages table for precise tracking.
-10. **XP boost not fully wired:** active_boosts table exists, mystery box/wheel can grant them, but scoring_handler doesn't check for active boosts yet.
+10. ~~**XP boost not fully wired:**~~ **FIXED** — scoring_handler now checks `active_boosts` table AND `VariableRewards.is_double_xp` for surprise 2x windows. Season XP also wired (50% of message score). Variable rewards delegation (mystery drops) connected.
 
 ---
 

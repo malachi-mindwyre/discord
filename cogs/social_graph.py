@@ -14,7 +14,7 @@ import aiosqlite
 import discord
 from discord.ext import commands, tasks
 
-from config import EXCLUDED_CHANNELS
+from config import EXCLUDED_CHANNELS, BEST_FRIEND_MIN_SCORE
 from database import (
     DB_PATH,
     add_coins,
@@ -64,17 +64,33 @@ def _rank_friendship(score: float) -> str:
     return "Acquaintance 👤"
 
 
+async def _ensure_quest_table():
+    """Create connection_quests table if it doesn't exist."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS connection_quests (
+                user_a INTEGER NOT NULL,
+                user_b INTEGER NOT NULL,
+                started_at TEXT NOT NULL,
+                a_replies INTEGER DEFAULT 0,
+                b_replies INTEGER DEFAULT 0,
+                completed INTEGER DEFAULT 0,
+                PRIMARY KEY (user_a, user_b)
+            )
+        """)
+        await db.commit()
+
+
 class SocialGraph(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        # Track active icebreaker quests: {(user_a, user_b): {"started": datetime, "a_replies": int, "b_replies": int}}
-        self._active_quests: dict[tuple[int, int], dict] = {}
         # Track announced best-friend pairs so we don't repeat
         self._announced_bf: set[tuple[int, int]] = set()
 
     @commands.Cog.listener()
     async def on_ready(self):
         """Start background tasks (guard against double-start on reconnect)."""
+        await _ensure_quest_table()
         if not self.friendship_decay.is_running():
             self.friendship_decay.start()
         if not self.icebreaker_matchmaking.is_running():
@@ -380,28 +396,65 @@ class SocialGraph(commands.Cog):
     # ═══════════════════════════════════════════════════════════════════════
 
     async def _check_quest_progress(self, replier_id: int, replied_to_id: int):
-        """Check if a reply counts toward an active icebreaker quest."""
-        key_ab = (min(replier_id, replied_to_id), max(replier_id, replied_to_id))
-        quest = self._active_quests.get(key_ab)
-        if not quest:
-            return
+        """Check if a reply counts toward an active icebreaker quest (DB-persisted)."""
+        key_a = min(replier_id, replied_to_id)
+        key_b = max(replier_id, replied_to_id)
 
-        # Check expiry
-        if datetime.utcnow() > quest["started"] + timedelta(hours=24):
-            self._active_quests.pop(key_ab, None)
-            return
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT * FROM connection_quests WHERE user_a = ? AND user_b = ? AND completed = 0",
+                (key_a, key_b),
+            )
+            quest = await cursor.fetchone()
+            if not quest:
+                return
+            quest = dict(quest)
 
-        # Increment the replier's count
-        if replier_id == key_ab[0]:
-            quest["a_replies"] += 1
-        else:
-            quest["b_replies"] += 1
+            # Check 24h expiry
+            started = datetime.fromisoformat(quest["started_at"])
+            if datetime.utcnow() > started + timedelta(hours=24):
+                await db.execute(
+                    "DELETE FROM connection_quests WHERE user_a = ? AND user_b = ?",
+                    (key_a, key_b),
+                )
+                await db.commit()
+                return
 
-        # Check if both hit the goal
-        if quest["a_replies"] >= ICEBREAKER_REPLY_GOAL and quest["b_replies"] >= ICEBREAKER_REPLY_GOAL:
-            self._active_quests.pop(key_ab, None)
+            # Increment the replier's count
+            if replier_id == key_a:
+                await db.execute(
+                    "UPDATE connection_quests SET a_replies = a_replies + 1 WHERE user_a = ? AND user_b = ?",
+                    (key_a, key_b),
+                )
+            else:
+                await db.execute(
+                    "UPDATE connection_quests SET b_replies = b_replies + 1 WHERE user_a = ? AND user_b = ?",
+                    (key_a, key_b),
+                )
+            await db.commit()
+
+            # Re-read to check completion
+            cursor = await db.execute(
+                "SELECT a_replies, b_replies FROM connection_quests WHERE user_a = ? AND user_b = ?",
+                (key_a, key_b),
+            )
+            row = await cursor.fetchone()
+            if not row:
+                return
+
+        a_replies, b_replies = row[0], row[1]
+        if a_replies >= ICEBREAKER_REPLY_GOAL and b_replies >= ICEBREAKER_REPLY_GOAL:
+            # Mark complete
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "UPDATE connection_quests SET completed = 1 WHERE user_a = ? AND user_b = ?",
+                    (key_a, key_b),
+                )
+                await db.commit()
+
             # Reward both users
-            for uid in key_ab:
+            for uid in (key_a, key_b):
                 await update_user_score(uid, ICEBREAKER_REWARD_POINTS)
                 await add_coins(uid, ICEBREAKER_REWARD_COINS)
 
@@ -409,10 +462,10 @@ class SocialGraph(commands.Cog):
             for guild in self.bot.guilds:
                 general = discord.utils.get(guild.text_channels, name="general")
                 if general:
-                    member_a = guild.get_member(key_ab[0])
-                    member_b = guild.get_member(key_ab[1])
-                    name_a = member_a.display_name if member_a else f"User {key_ab[0]}"
-                    name_b = member_b.display_name if member_b else f"User {key_ab[1]}"
+                    member_a = guild.get_member(key_a)
+                    member_b = guild.get_member(key_b)
+                    name_a = member_a.display_name if member_a else f"User {key_a}"
+                    name_b = member_b.display_name if member_b else f"User {key_b}"
                     embed = discord.Embed(
                         title="🤝 CONNECTION QUEST COMPLETE",
                         description=(
@@ -446,8 +499,15 @@ class SocialGraph(commands.Cog):
                 if len(strong_friends) >= FRIENDSHIP_MIN_CONNECTIONS:
                     continue
 
-                # Don't give them a quest if one is already active
-                if any(new_member.id in key for key in self._active_quests):
+                # Don't give them a quest if one is already active (check DB)
+                async with aiosqlite.connect(DB_PATH) as db:
+                    cursor = await db.execute(
+                        """SELECT COUNT(*) FROM connection_quests
+                           WHERE (user_a = ? OR user_b = ?) AND completed = 0""",
+                        (new_member.id, new_member.id),
+                    )
+                    active_count = (await cursor.fetchone())[0]
+                if active_count > 0:
                     continue
 
                 # Find an active member to pair with (not a bot, not the same person, active recently)
@@ -473,13 +533,17 @@ class SocialGraph(commands.Cog):
                 if not match_member:
                     continue
 
-                # Create the quest
-                key = (min(new_member.id, match_id), max(new_member.id, match_id))
-                self._active_quests[key] = {
-                    "started": datetime.utcnow(),
-                    "a_replies": 0,
-                    "b_replies": 0,
-                }
+                # Create the quest (persisted to DB)
+                key_a = min(new_member.id, match_id)
+                key_b = max(new_member.id, match_id)
+                now_iso = datetime.utcnow().isoformat()
+                async with aiosqlite.connect(DB_PATH) as db:
+                    await db.execute(
+                        """INSERT OR IGNORE INTO connection_quests (user_a, user_b, started_at)
+                           VALUES (?, ?, ?)""",
+                        (key_a, key_b, now_iso),
+                    )
+                    await db.commit()
 
                 # DM both users
                 quest_desc = (
@@ -534,6 +598,12 @@ class SocialGraph(commands.Cog):
                 pair = (min(uid, friend_id), max(uid, friend_id))
                 if pair in self._announced_bf:
                     continue
+
+                # Check minimum score threshold
+                uid_friends = await get_top_friends(uid, limit=1)
+                if not uid_friends or uid_friends[0]["friendship_score"] < BEST_FRIEND_MIN_SCORE:
+                    continue
+
                 self._announced_bf.add(pair)
 
                 # Announce in #general

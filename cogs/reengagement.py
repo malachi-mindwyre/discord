@@ -16,7 +16,7 @@ import discord
 from discord.ext import commands, tasks
 
 from config import EMBED_COLOR_PRIMARY, EMBED_COLOR_ACCENT, GUILD_ID
-from database import DB_PATH, get_inactive_users, get_user, get_streak
+from database import DB_PATH, get_inactive_users, get_user, get_streak, get_onboarding_state
 from ranks import get_rank_for_score, get_next_rank, RANK_BY_TIER
 
 logger = logging.getLogger("circle.reengagement")
@@ -388,6 +388,11 @@ class Reengagement(commands.Cog):
             days_inactive = (now - last_active).days
 
             if days_inactive < 1:
+                continue
+
+            # Skip users still in onboarding pipeline
+            ob_state = await get_onboarding_state(user_id)
+            if ob_state and ob_state.get("stage") != "graduated":
                 continue
 
             # Check opt-out

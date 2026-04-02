@@ -19,7 +19,11 @@ from config import (
     RANK_DEMOTION_ENABLED,
     DISPLACEMENT_PROXIMITY,
     DISPLACEMENT_COOLDOWN_HOURS,
+    DISPLACEMENT_MIN_MEMBERS,
     FACTION_LOSING_PENALTY,
+    FACTION_RELEGATION_MIN_MEMBERS,
+    STREAK_AT_RISK_MIN_STREAK,
+    STREAK_AT_RISK_DMS_PER_DAY,
     EMBED_COLOR_ERROR,
     EMBED_COLOR_WARNING,
 )
@@ -124,6 +128,8 @@ class LossAversion(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._tables_ready = False
+        self._streak_dm_sent_today: dict[int, int] = {}  # user_id -> count
+        self._streak_dm_date: str = ""
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -330,34 +336,41 @@ class LossAversion(commands.Cog):
 
     @tasks.loop(minutes=30)
     async def streak_at_risk_check(self):
-        """At 8 PM and 10 PM UTC, warn users about to lose their streak."""
+        """At 10 PM UTC, warn users about to lose their streak (1 DM/day max)."""
         now = datetime.utcnow()
         current_hour = now.hour
         current_minute = now.minute
 
-        # Only fire at 8 PM UTC (20:00) and 10 PM UTC (22:00)
-        # Allow a 15-minute window since the loop runs every 30 min
-        is_first_warning = current_hour == 20 and current_minute < 15
-        is_final_warning = current_hour == 22 and current_minute < 15
-
-        if not is_first_warning and not is_final_warning:
+        # Only fire at 10 PM UTC (22:00) — single warning per day
+        if not (current_hour == 22 and current_minute < 15):
             return
+
+        # Reset daily tracker
+        today_str = now.strftime("%Y-%m-%d")
+        if self._streak_dm_date != today_str:
+            self._streak_dm_sent_today.clear()
+            self._streak_dm_date = today_str
 
         guild = self._get_guild()
         if not guild:
             return
 
-        # Get all users with streaks >= 3
+        # Get users with streaks >= threshold (default 7)
         async with aiosqlite.connect(DB_PATH) as db:
             db.row_factory = aiosqlite.Row
             cursor = await db.execute(
-                "SELECT user_id, current_streak FROM streaks WHERE current_streak >= 3"
+                "SELECT user_id, current_streak FROM streaks WHERE current_streak >= ?",
+                (STREAK_AT_RISK_MIN_STREAK,),
             )
             streak_users = [dict(row) for row in await cursor.fetchall()]
 
         for streak_data in streak_users:
             user_id = streak_data["user_id"]
             streak_length = streak_data["current_streak"]
+
+            # Check daily DM limit
+            if self._streak_dm_sent_today.get(user_id, 0) >= STREAK_AT_RISK_DMS_PER_DAY:
+                continue
 
             # Check if they've messaged today
             msgs_today = await get_messages_today_count(user_id)
@@ -368,32 +381,21 @@ class LossAversion(commands.Cog):
             if not member:
                 continue
 
-            if is_first_warning:
-                embed = discord.Embed(
-                    title="⚠️ STREAK AT RISK",
-                    description=(
-                        f"**{member.display_name}**, your **{streak_length}-day streak** "
-                        f"is fading. The Circle hasn't heard from you today.\n\n"
-                        f"Send a message before midnight UTC to keep it alive."
-                    ),
-                    color=EMBED_COLOR_WARNING,
-                )
-                embed.set_footer(text="The Circle • Don't let the flame die")
-            else:
-                embed = discord.Embed(
-                    title="🔥 FINAL WARNING — STREAK EXPIRES SOON",
-                    description=(
-                        f"**{member.display_name}**, this is your last chance.\n\n"
-                        f"Your **{streak_length}-day streak** dies at midnight UTC. "
-                        f"That's **{streak_length} days** of dedication — gone.\n\n"
-                        f"*One message. That's all it takes.*"
-                    ),
-                    color=EMBED_COLOR_ERROR,
-                )
-                embed.set_footer(text="The Circle • The Keeper is watching")
+            embed = discord.Embed(
+                title="🔥 STREAK AT RISK — FINAL WARNING",
+                description=(
+                    f"**{member.display_name}**, your **{streak_length}-day streak** "
+                    f"dies at midnight UTC.\n\n"
+                    f"That's **{streak_length} days** of dedication — gone.\n\n"
+                    f"*One message. That's all it takes.*"
+                ),
+                color=EMBED_COLOR_ERROR,
+            )
+            embed.set_footer(text="The Circle • The Keeper is watching")
 
             try:
                 await member.send(embed=embed)
+                self._streak_dm_sent_today[user_id] = self._streak_dm_sent_today.get(user_id, 0) + 1
             except (discord.HTTPException, discord.Forbidden):
                 pass
 
@@ -427,6 +429,10 @@ class LossAversion(commands.Cog):
         await self._ensure_ready()
         guild = self._get_guild()
         if not guild:
+            return
+
+        # Skip at small scale — too noisy
+        if guild.member_count < DISPLACEMENT_MIN_MEMBERS:
             return
 
         # Only alert if the climber entered the top N
@@ -504,6 +510,10 @@ class LossAversion(commands.Cog):
 
         guild = self._get_guild()
         if not guild:
+            return
+
+        # Skip at small scale — punishing, not motivating
+        if guild.member_count < FACTION_RELEGATION_MIN_MEMBERS:
             return
 
         # Get last week's faction scores

@@ -526,7 +526,8 @@ DAILY_PROMPTS = [
 
 # ─── Variable Rewards (Dopamine Engine) ───────────────────────────────────
 CRITICAL_HIT_CHANCE = 0.02           # 2% chance of 2x on any message
-NEAR_MISS_CHANCE = 0.03              # 3% chance of "almost" message
+NEAR_MISS_CHANCE = 0.01              # 1% chance of "almost" message (reduced from 3%)
+NEAR_MISS_MIN_RANK = 11              # Only Regular+ (tier 11+) see near-miss messages
 BONUS_DROP_CHANCE = 0.02             # 2% chance your NEXT msg gets hidden multiplier
 BONUS_DROP_MULTIPLIERS = [           # (multiplier, weight)
     (2.0, 50),                        # 50% chance of 2x
@@ -562,6 +563,19 @@ WHEEL_SEGMENTS = [
 ]
 
 # Mystery Box (redesigned loot table)
+# Rotating Shop Item Pool (daily rotation)
+ROTATING_SHOP_POOL = [
+    {"key": "double_daily", "name": "Double Daily Reward", "cost": 300, "desc": "Tomorrow's !daily gives 2x coins", "duration_hours": 48, "stock": 5},
+    {"key": "name_glow", "name": "Glowing Name (24h)", "cost": 200, "desc": "Your name shines for 24 hours", "duration_hours": 72, "stock": 3},
+    {"key": "confession_pass", "name": "Extra Confession", "cost": 100, "desc": "Bypass the 6h confession cooldown once", "duration_hours": 48, "stock": 10},
+    {"key": "xp_boost_2h", "name": "XP Boost (2x, 2hr)", "cost": 200, "desc": "Double points for 2 hours", "duration_hours": 48, "stock": 5},
+    {"key": "streak_shield_48h", "name": "Streak Shield (48h)", "cost": 400, "desc": "Protects streak for 2 missed days", "duration_hours": 72, "stock": 3},
+    {"key": "mystery_box_premium", "name": "Premium Mystery Box", "cost": 300, "desc": "Better odds, no empty box", "duration_hours": 48, "stock": 5},
+    {"key": "profile_sparkle", "name": "Profile Sparkle", "cost": 150, "desc": "Sparkle effect on your !profile for 48h", "duration_hours": 48, "stock": 8},
+    {"key": "double_reactions", "name": "Reaction Magnet", "cost": 250, "desc": "Reactions give 2x friendship points for 24h", "duration_hours": 48, "stock": 4},
+]
+ROTATING_SHOP_ITEMS_PER_DAY = 3  # How many rotating items to stock each day
+
 MYSTERY_BOX_LOOT_TABLE = [
     {"name": "25 Circles",          "coins": 25,   "weight": 25, "type": "coins"},
     {"name": "50 Circles",          "coins": 50,   "weight": 20, "type": "coins"},
@@ -595,9 +609,13 @@ RANK_DEMOTION_GRACE_DAYS = 3         # Days below threshold before demotion
 RANK_DEMOTION_ENABLED = True
 DISPLACEMENT_PROXIMITY = 5           # Alert if within top N positions
 DISPLACEMENT_COOLDOWN_HOURS = 12     # Max 1 alert per N hours
+DISPLACEMENT_MIN_MEMBERS = 50        # Only send displacement alerts above this member count
 FACTION_LOSING_PENALTY = 0.95        # 5% reduction for last-place faction
+FACTION_RELEGATION_MIN_MEMBERS = 80  # Only relegate factions above this member count
 
 # Streak Insurance
+STREAK_AT_RISK_MIN_STREAK = 7        # Only DM streak-at-risk for streaks >= this
+STREAK_AT_RISK_DMS_PER_DAY = 1       # Max streak-at-risk DMs per user per day
 STREAK_FREEZE_COST = 200             # Circles to buy a freeze token
 STREAK_FREEZE_MAX_HELD = 3           # Max tokens a user can hold
 STREAK_FREEZE_AUTO_USE = True        # Auto-use on missed day
@@ -610,10 +628,13 @@ STREAK_GRACE_MIN_LENGTH = 14         # Min streak for free grace period
 
 # Tiered Comeback Bonus
 COMEBACK_BONUS_TIERS = {             # max_days_inactive -> multiplier
-    29: 5.0,                          # 7-29 days = 5x
-    59: 3.0,                          # 30-59 days = 3x
-    9999: 2.0,                        # 60+ days = 2x
+    29: 3.0,                          # 7-29 days = 3x
+    59: 5.0,                          # 30-59 days = 5x (peak urgency window)
+    9999: 3.0,                        # 60+ days = 3x (generous, up from 2x)
 }
+COMEBACK_GIFT_BASE_COINS = 50        # Base welcome-back coin gift
+COMEBACK_GIFT_PER_DAY = 2            # Extra coins per day inactive
+COMEBACK_GIFT_MAX_COINS = 500        # Cap on welcome-back gift
 
 # ─── Onboarding v2 ───────────────────────────────────────────────────────
 ONBOARDING_QUEST_INTRO_POINTS = 50
@@ -651,6 +672,7 @@ PAIRED_STREAK_MILESTONES = {7: 50, 14: 150, 30: 500, 60: 1000}
 
 # ─── Social Graph ────────────────────────────────────────────────────────
 FRIENDSHIP_DECAY_WEEKLY = 0.05       # 5% weekly decay on zero-interaction pairs
+BEST_FRIEND_MIN_SCORE = 25.0         # Min score to announce best friends (prevents hollow announcements)
 FRIENDSHIP_MIN_CONNECTIONS = 3       # Target connections within 7 days
 ICEBREAKER_CHECK_HOURS = 12          # How often to check for lonely members
 ICEBREAKER_REPLY_GOAL = 3            # Replies needed to complete connection quest

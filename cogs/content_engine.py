@@ -22,6 +22,7 @@ from config import (
     EXCLUDED_CHANNELS,
     EMBED_COLOR_PRIMARY,
     EMBED_COLOR_ACCENT,
+    GUILD_ID,
     QUICK_FIRE_PROMPTS,
     QUICK_FIRE_PER_DAY,
     QUICK_FIRE_MIN_GAP_HOURS,
@@ -319,6 +320,16 @@ class ContentEngine(commands.Cog):
             self._used_prompt_indices = self._used_prompt_indices[-(len(QUICK_FIRE_PROMPTS) // 2):]
         return QUICK_FIRE_PROMPTS[idx]
 
+    def _get_effective_fires_per_day(self) -> int:
+        """Scale Quick Fire frequency based on member count."""
+        guild = self.bot.get_guild(GUILD_ID)
+        member_count = guild.member_count if guild else 50
+        if member_count < 25:
+            return 1
+        if member_count < 100:
+            return 2
+        return QUICK_FIRE_PER_DAY
+
     def _can_fire_now(self) -> bool:
         """Check if we can fire (respect daily limit and min gap)."""
         now = datetime.now(timezone.utc)
@@ -327,7 +338,8 @@ class ContentEngine(commands.Cog):
         if self._fire_times_today and self._fire_times_today[0].date() < now.date():
             self._fire_times_today.clear()
 
-        if len(self._fire_times_today) >= QUICK_FIRE_PER_DAY:
+        max_fires = self._get_effective_fires_per_day()
+        if len(self._fire_times_today) >= max_fires:
             return False
 
         if self._fire_times_today:
@@ -585,11 +597,20 @@ class ContentEngine(commands.Cog):
 
         trending_found: List[Tuple[str, int, int]] = []  # (word, count, user_count)
 
+        # Scale trending thresholds for small servers
+        member_count = guild.member_count if guild else 50
+        if member_count < 50:
+            min_mentions = max(3, int(TRENDING_MIN_MENTIONS * member_count / 200))
+            min_users = max(2, int(TRENDING_MIN_USERS * member_count / 200))
+        else:
+            min_mentions = TRENDING_MIN_MENTIONS
+            min_users = TRENDING_MIN_USERS
+
         for word, user_counts in self._word_tracker.items():
             total_count = sum(user_counts.values())
             unique_users = len(user_counts)
 
-            if total_count >= TRENDING_MIN_MENTIONS and unique_users >= TRENDING_MIN_USERS:
+            if total_count >= min_mentions and unique_users >= min_users:
                 trending_found.append((word, total_count, unique_users))
 
         if not trending_found:
