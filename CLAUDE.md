@@ -125,7 +125,7 @@ final_score = BASE * SOCIAL * TEMPORAL * ENGAGEMENT * META
 - Combo: consecutive social msgs within 10 min = +10% per stack (max +50%)
 
 ### Layer 5: META (Comeback + Streak + Catch-up + Faction + Prestige)
-- Comeback: 5x (7-29d inactive), 3x (30-59d), 2x (60+d)
+- Comeback: 3x (7-29d inactive), 5x (30-59d), 3x (60+d) + welcome-back coin gift
 - Streak: 1.1x (3d) to 4.0x (365d)
 - Catch-up: Rookie/Regular +40%, Certified/Respected +20%, Veteran/OG +10%
 - Faction winner: 1.1x
@@ -134,6 +134,13 @@ final_score = BASE * SOCIAL * TEMPORAL * ENGAGEMENT * META
 
 ### Layer 6: Dynamic Daily Cap
 - Ranks 1-30: 500 pts/day | 31-60: 750 | 61-90: 1000 | 91-100: 1500
+
+### Post-Score Integrations (all wired in scoring_handler.py)
+- **Surprise 2x XP window:** If `VariableRewards.is_double_xp` is active, all points doubled
+- **Personal XP boosts:** Checks `active_boosts` table for shop/wheel-granted multipliers
+- **Season XP:** 50% of message score flows to `season_pass.add_season_xp()`
+- **Variable rewards delegation:** Jackpot contribution + mystery drops via `variable_rewards.on_scored_message()`
+- **Welcome-back gift:** Comeback users get 50-500 Circles scaling with days absent
 
 ### Anti-Spam
 - 15s cooldown between scored messages
@@ -234,23 +241,23 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Growth Nudges | `cogs/growth_nudges.py` | Rank teasers at 80% + stagnation nudges at 14 days |
 | Engagement Triggers | `cogs/engagement_triggers.py` | Random tips, social proof, cliffhangers |
 | Economy | `cogs/economy.py` | Circles currency (1 per scored message) |
-| Shop | `cogs/shop.py` | 5 items + **redesigned mystery box** (10-item loot table with streak freezes, XP boosts, rank shields) |
+| Shop | `cogs/shop.py` | 5 permanent items + **rotating daily shop** (3 limited-time items from pool of 8) + **mystery box** (10-item loot table with streak freezes, XP boosts, rank shields) |
 | Auto Events | `cogs/auto_events.py` | 6-day event calendar (Mon-Sat) |
 | Trivia | `cogs/trivia.py` | Tuesday auto-trivia, 20 questions |
 | Server Goals | `cogs/server_goals.py` | Member milestones + weekly message targets |
 | Profiles | `cogs/profiles.py` | Custom bio, color, banner via !profile |
 | Factions | `cogs/factions.py` | 4 teams, unlock at rank 31, weekly competition |
-| Smart DM | `cogs/smart_dm.py` | Legacy re-engagement DMs (superseded by reengagement.py) |
+| ~~Smart DM~~ | `cogs/smart_dm.py` | **DISABLED** — Superseded by `reengagement.py`. No longer loaded. |
 | Buddy System | `cogs/buddy_system.py` | Mentor pairing, 10-msg goal in 48h |
 | Daily Rewards | `cogs/daily_rewards.py` | Escalating login rewards, streak reset on miss |
 
-### Phase 3: Ultimate Engagement Engine (13 cogs)
+### Phase 3: Ultimate Engagement Engine (15 cogs)
 | Cog | File | Purpose |
 |---|---|---|
-| Onboarding v2 | `cogs/onboarding_v2.py` | **7-day staged pipeline**: T+5s quest DM, T+5min nudge, T+1hr progress, T+4hr streak anchor, T+24h check-in, T+48h momentum, T+72h milestone tease, Day 6 report card, Day 7 graduation ceremony + Survivor badge + 100 Circles |
+| Onboarding v2 | `cogs/onboarding_v2.py` | **7-day staged pipeline**: T+5s quest DM (4 quests with endowed progress — joining counts as #1), T+5min nudge, T+1hr progress, T+4hr streak anchor, T+24h check-in, T+48h momentum, T+72h milestone tease, Day 6 report card, Day 7 graduation ceremony + Survivor badge + 100 Circles. **Fallback:** posts in #general if DMs disabled. |
 | Streaks v2 | `cogs/streaks_v2.py` | **5 streak types** (daily/weekly/social/voice/creative), freeze tokens, grace periods, paired streaks, division leaderboard |
 | Re-engagement | `cogs/reengagement.py` | **8-tier unified pipeline**: Day 1 server callout, Day 2 loss aversion DM, Day 3 social proof, Day 5 competitive loss, Day 7 urgency, Day 14 active loss, Day 30 nostalgia, Day 60 closure (then opt-out) |
-| Loss Aversion | `cogs/loss_aversion.py` | Graduated decay (0.5%-5%/day by inactivity length), **rank demotion** (3-day grace), streak-at-risk notifications (8 PM + 10 PM UTC), competitive displacement alerts, faction relegation |
+| Loss Aversion | `cogs/loss_aversion.py` | Graduated decay (0.5%-5%/day by inactivity length), **rank demotion** (3-day grace), streak-at-risk notifications (10 PM UTC, streaks ≥7 only, 1 DM/day), competitive displacement alerts (50+ members only), faction relegation (80+ members only) |
 | Variable Rewards | `cogs/variable_rewards.py` | **Progressive jackpot** (0.05% trigger, pot builds 0.5/msg), surprise 2x XP windows (random 15-30 min every 4-8h), mystery drops every 100 server msgs, critical hits (2% chance = 2x), bonus drops (2% chance = 2-10x on next msg), near-miss messages (3%) |
 | Daily Wheel | `cogs/daily_wheel.py` | `!spin` -- free once/day, animated reveal, 11 weighted segments (5-500 Circles, XP boosts, streak freeze, jackpot trigger) |
 | Social Graph | `cogs/social_graph.py` | **Friendship score** tracking (replies*3 + mentions*2 + reactions*1 + voice*0.5), 5% weekly decay, `!friends` top 5, `!bestfriend` mutual detection, `!rival @user` 4-week rivalry, **icebreaker matchmaking** (finds lonely new members every 12h, creates Connection Quests) |
@@ -327,7 +334,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 ## ECONOMY SYSTEM
 
 - **Currency:** Circles (emoji: 🪙)
-- **Earning:** 1 Circle per scored message, daily login (10-500), wheel spin, event rewards
+- **Earning:** 1 Circle per scored message, daily login (10-500), wheel spin, event rewards, welcome-back gift (50-500 scaling with days absent)
 - **Spending:** Shop items (50-200), streak freezes (200), Circle creation (200), rival declaration (50), UGC submission (20), premium season pass (5000)
 - **Progressive Jackpot:** Builds 0.5 per message, 0.05% trigger chance, avg payout ~500-1000 Circles
 
@@ -338,7 +345,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Mechanic | Trigger | Effect |
 |---|---|---|
 | Critical Hit | 2% per message | 2x points on that message |
-| Near Miss | 3% per message | "Almost got a bonus!" message (auto-deletes) |
+| Near Miss | 1% per message (Regular+ only) | "Almost got a bonus!" message (auto-deletes) |
 | Bonus Drop | 2% per message | Next message gets hidden 2-10x multiplier |
 | Progressive Jackpot | 0.05% per message (min pot 100) | Win entire pot (avg 500-1000 Circles) |
 | Surprise 2x Window | Random every 4-8 hours | 15-30 min server-wide double XP |
@@ -370,9 +377,9 @@ Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM -> Day 14 D
 ### Loss Aversion
 - Graduated decay: 0.5%/day at 30d -> 5%/day at 90d
 - Rank demotion after 3 days below threshold
-- Streak-at-risk DMs at 8 PM and 10 PM UTC
-- Competitive displacement alerts
-- Faction relegation (last-place team loses channel for 24h)
+- Streak-at-risk DM at 10 PM UTC (streaks ≥7 only, max 1/day)
+- Competitive displacement alerts (50+ members only)
+- Faction relegation (80+ members only, last-place team loses channel for 24h)
 
 ---
 
@@ -408,13 +415,15 @@ Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM -> Day 14 D
 
 ---
 
-## DATABASE TABLES (~50 total)
+## DATABASE TABLES (~55 total)
 
 **Phase 1:** users, messages, daily_scores, rank_history, invites, streaks, achievements, voice_sessions, reactions_received
 
 **Phase 2:** economy, shop_purchases, shop_rotating, confessions, starboard, factions, faction_scores, buddies, profiles, login_rewards, smart_dm_log, trivia_scores, invite_reminders_log, monthly_invite_race, server_milestones, weekly_goals, rank_tease_log, stagnation_log, engagement_trigger_log, introductions
 
 **Phase 3:** jackpot, daily_spins, bonus_drops, demotion_watch, streak_freezes, displacement_log, onboarding_state, reengagement_state, streaks_v2, paired_streaks, social_graph, circles, circle_members, content_submissions, debate_scores, trending_topics, faction_wars, faction_territories, faction_treasury, faction_loyalty, seasons, season_progress, season_challenges, season_challenge_completions, season_rewards, prestige, user_engagement_tier, legacy_events, mod_reputation, combo_tracker, channel_diversity, kudos, rivals, time_capsules, active_boosts
+
+**Audit Fix:** metrics_daily, oracle_log, connection_quests, quick_fire_log, quick_fire_replies
 
 ---
 
@@ -465,7 +474,7 @@ discord/
 │   ├── season_pass.py      -- NEW: Battle pass
 │   ├── server_goals.py
 │   ├── shop.py             -- UPDATED: New mystery box loot table
-│   ├── smart_dm.py
+│   ├── smart_dm.py         -- DISABLED (superseded by reengagement.py)
 │   ├── social_graph.py     -- NEW: Friendship tracking, rivals
 │   ├── starboard.py
 │   ├── streaks.py
@@ -503,13 +512,13 @@ The original `ENGAGEMENT_PLAN.md` contained 17 planned features. Here is their c
 | 9 | Server-wide milestone goals | **BUILT** | server_goals.py |
 | 10 | Member profiles | **BUILT** | profiles.py |
 | 11 | Factions | **BUILT** | factions.py |
-| 12 | Smart re-engagement DMs | **BUILT** (v1 + v2) | smart_dm.py, reengagement.py |
+| 12 | Smart re-engagement DMs | **BUILT** (v2 only) | reengagement.py (smart_dm.py disabled) |
 | 13 | Buddy/mentor system | **BUILT** | buddy_system.py |
 | 14 | Daily login rewards | **BUILT** | daily_rewards.py |
 | 15 | Third-party bots | **NOT STARTED** | N/A (add at 20+ members) |
 
-**Beyond the original plan, Phase 3 added 13 entirely new systems:**
-Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles, content engine, debates, season pass, prestige, engagement ladder, onboarding v2, unified re-engagement.
+**Beyond the original plan, Phase 3 added 15 entirely new systems:**
+Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles, content engine, debates, season pass, prestige, engagement ladder, onboarding v2, unified re-engagement, oracle, metrics.
 
 ---
 
@@ -520,7 +529,7 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 3. **Factions warfare 2.0:** The plan includes territory control, treasury, loyalty, traitor mechanics. The current `factions.py` is basic. The config constants exist in `config.py` (FACTION_WAR_CHALLENGE_CYCLE, FACTION_TERRITORY_BONUS, etc.) but the cog hasn't been rewritten yet.
 4. **Enhanced weekly recap:** Plan calls for a full "Sunday Ceremony" with faction standings, territory map, Oracle review. Not yet implemented.
 5. **Enhanced profiles:** Plan calls for display titles, legacy timeline, activity crown. Config exists (DISPLAY_TITLES, RANK_PERKS) but not wired into profiles.py.
-6. **Oracle system:** Evening predictions (200+ templates in ORACLE_PREDICTIONS config). Not yet implemented as a cog.
+6. ~~**Oracle system:**~~ **BUILT** — `cogs/oracle.py` posts daily at 9 PM UTC, 200+ templates, 7-day no-repeat, `!oracle` command.
 7. **Time capsules:** Quarterly `!timecapsule <message>` with reveal 3 months later. Table exists, cog not built.
 8. **Hidden moderation layer:** Invisible reputation score (config exists: MOD_REPUTATION_*). Not yet implemented.
 9. **First-reply detection:** Currently uses a 30% random heuristic. Needs parent_message_id column in messages table for precise tracking.
@@ -534,7 +543,7 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 **The bot runs on the Pi, not locally.** After ANY code changes:
 1. Push all modified files via tar over SSH
 2. Restart the circle-bot systemd service
-3. Check logs to verify ALL 45 cogs loaded successfully
+3. Check logs to verify ALL 46 cogs loaded successfully
 4. If any cog fails to load, fix it before ending the session
 
 ### 2. Keep Documentation Updated
