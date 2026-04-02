@@ -172,8 +172,11 @@ class AchievementChecker(commands.Cog):
         )
         embed.set_thumbnail(url=member.display_avatar.url)
 
+        # Post to #achievements channel instead of inline
+        ach_channel = discord.utils.get(guild.text_channels, name="achievements")
+        target = ach_channel or channel  # fallback to original channel if #achievements doesn't exist
         try:
-            await channel.send(embed=embed)
+            await target.send(embed=embed)
         except discord.HTTPException:
             pass
 

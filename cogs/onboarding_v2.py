@@ -153,6 +153,7 @@ class OnboardingV2(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+        self._welcomed_members: set[int] = set()  # Dedup on_member_join
 
     async def cog_load(self):
         self.onboarding_loop.start()
@@ -175,6 +176,13 @@ class OnboardingV2(commands.Cog):
     async def on_member_join(self, member: discord.Member):
         if member.bot:
             return
+
+        # Dedup: Discord can fire on_member_join multiple times
+        if member.id in self._welcomed_members:
+            return
+        self._welcomed_members.add(member.id)
+        if len(self._welcomed_members) > 100:
+            self._welcomed_members = set(list(self._welcomed_members)[-50:])
 
         await get_or_create_user(member.id, str(member))
         await create_onboarding_state(member.id)

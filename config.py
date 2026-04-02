@@ -164,6 +164,7 @@ CHANNEL_STRUCTURE = {
         "media-feed": {"read_only": True, "topic": "Auto-curated media from all channels. Keeper collects."},
         "leaderboard": {"read_only": True, "topic": "The worthy rise. The silent fall."},
         "rank-ups": {"read_only": True, "topic": "Witness the ascension."},
+        "achievements": {"read_only": True, "topic": "Badges unlocked. Milestones reached."},
     },
     "🎭 ENGAGEMENT": {
         "introductions": {"read_only": False, "topic": "Introduce yourself! 50 pts + badge for your first post."},

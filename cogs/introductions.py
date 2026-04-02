@@ -60,8 +60,11 @@ class Introductions(commands.Cog):
             "\nThe Circle sees you now. 👁️",
             color=EMBED_COLOR_ACCENT,
         )
+        # Post to #achievements channel instead of inline
+        ach_channel = discord.utils.get(message.guild.text_channels, name="achievements")
+        target = ach_channel or message.channel
         try:
-            await message.channel.send(embed=embed)
+            await target.send(embed=embed)
         except discord.HTTPException:
             pass
 
