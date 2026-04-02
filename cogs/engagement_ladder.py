@@ -152,10 +152,13 @@ class EngagementLadder(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    async def cog_load(self):
-        self.weekly_recalculate.start()
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Start background tasks (guard against double-start on reconnect)."""
+        if not self.weekly_recalculate.is_running():
+            self.weekly_recalculate.start()
 
-    async def cog_unload(self):
+    def cog_unload(self):
         self.weekly_recalculate.cancel()
 
     @tasks.loop(hours=168)  # Weekly (7 days)

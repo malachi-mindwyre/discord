@@ -34,7 +34,12 @@ class HealthCheck(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._last_report: Optional[dict] = None
-        self.periodic_check.start()
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Start background tasks (guard against double-start on reconnect)."""
+        if not self.periodic_check.is_running():
+            self.periodic_check.start()
 
     def cog_unload(self):
         self.periodic_check.cancel()

@@ -118,11 +118,17 @@ class SeasonPass(commands.Cog):
 
     async def cog_load(self):
         await self._ensure_tables()
-        self.check_season_loop.start()
-        self.check_challenges_loop.start()
         logger.info("✓ SeasonPass cog loaded")
 
-    async def cog_unload(self):
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Start background tasks (guard against double-start on reconnect)."""
+        if not self.check_season_loop.is_running():
+            self.check_season_loop.start()
+        if not self.check_challenges_loop.is_running():
+            self.check_challenges_loop.start()
+
+    def cog_unload(self):
         self.check_season_loop.cancel()
         self.check_challenges_loop.cancel()
 
