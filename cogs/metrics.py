@@ -14,7 +14,12 @@ import aiosqlite
 import discord
 from discord.ext import commands, tasks
 
-from config import EMBED_COLOR_PRIMARY, EMBED_COLOR_ACCENT
+from config import (
+    EMBED_COLOR_PRIMARY,
+    EMBED_COLOR_ACCENT,
+    METRICS_ALERT_D7_THRESHOLD,
+    METRICS_ALERT_DAU_MAU_THRESHOLD,
+)
 from database import DB_PATH
 
 logger = logging.getLogger("circle.metrics")
@@ -246,6 +251,36 @@ class Metrics(commands.Cog):
                 dau, wau, mau, dau_mau, d1 * 100, d7 * 100, d30 * 100,
                 funnel["total"], funnel["messaged"], funnel["graduated"],
             )
+
+            # ── Automated alerts when metrics drop below thresholds ──
+            alerts = []
+            if mau > 0 and d7 < METRICS_ALERT_D7_THRESHOLD:
+                alerts.append(f"📉 **D7 Retention** dropped to **{d7*100:.0f}%** (threshold: {METRICS_ALERT_D7_THRESHOLD*100:.0f}%)")
+            if mau > 0 and dau_mau < METRICS_ALERT_DAU_MAU_THRESHOLD:
+                alerts.append(f"📉 **DAU/MAU** dropped to **{dau_mau:.2f}** (threshold: {METRICS_ALERT_DAU_MAU_THRESHOLD:.2f})")
+
+            if alerts:
+                for guild in self.bot.guilds:
+                    alert_channel = None
+                    for ch in guild.text_channels:
+                        if "admin" in ch.name or "mod" in ch.name:
+                            alert_channel = ch
+                            break
+                    if not alert_channel and guild.text_channels:
+                        alert_channel = guild.text_channels[0]
+                    if alert_channel:
+                        embed = discord.Embed(
+                            title="⚠️ METRICS ALERT",
+                            description="\n".join(alerts),
+                            color=0xFF0000,
+                        )
+                        embed.set_footer(text=f"Snapshot: {today} • Run !metrics for details")
+                        try:
+                            await alert_channel.send(embed=embed)
+                        except discord.HTTPException:
+                            pass
+                logger.warning("Metrics alerts triggered: %s", "; ".join(alerts))
+
         except Exception:
             logger.exception("Failed to compute daily metrics")
 

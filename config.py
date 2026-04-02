@@ -83,6 +83,11 @@ DAILY_CAP_TIERS = [                 # (max_rank_tier, daily_cap)
     (90, 1000),                      # Elite-Icon: 1000/day
 ]
 DAILY_CAP_DEFAULT = 1500             # Immortal: 1500/day
+POST_SCORE_MULT_CAP = 10.0          # Max cumulative post-score multiplier (comeback × event × 2x × boost × drop × crit)
+
+# ─── Metrics Alerts ──────────────────────────────────────────────────────
+METRICS_ALERT_D7_THRESHOLD = 0.30   # Alert if D7 retention drops below 30%
+METRICS_ALERT_DAU_MAU_THRESHOLD = 0.25  # Alert if DAU/MAU drops below 0.25
 
 # ─── Anti-Spam (Relaxed) ───────────────────────────────────────────────────
 COOLDOWN_SECONDS = 15               # Seconds between scored messages

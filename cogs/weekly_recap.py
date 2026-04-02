@@ -32,6 +32,7 @@ from database import (
     get_streak,
 )
 from ranks import RANK_BY_TIER, get_rank_for_score
+from dm_coordinator import record_dm as global_record_dm
 
 logger = logging.getLogger("circle.weekly_recap")
 
@@ -294,6 +295,7 @@ class WeeklyRecap(commands.Cog):
 
                 try:
                     await member.send(embed=embed)
+                    await global_record_dm(row["user_id"], "weekly_recap")
                     dm_count += 1
                     await asyncio.sleep(1)  # Rate limit protection
                 except (discord.HTTPException, discord.Forbidden):

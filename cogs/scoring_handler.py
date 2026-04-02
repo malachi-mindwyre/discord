@@ -40,6 +40,9 @@ from config import (
     COMEBACK_GIFT_MAX_COINS,
     NEAR_MISS_MIN_RANK,
     GUILD_ID,
+    POST_SCORE_MULT_CAP,
+    DAILY_CAP_TIERS,
+    DAILY_CAP_DEFAULT,
 )
 from scoring import MessageContext, calculate_score, extract_quality_signals
 from ranks import get_rank_for_score, get_next_rank, RANK_BY_TIER, make_progress_bar
@@ -351,6 +354,26 @@ class ScoringHandler(commands.Cog):
             except discord.HTTPException:
                 pass
 
+        # ── Enforce post-score multiplier cap ────────────────────────
+
+        if result.points > 0:
+            cumulative_mult = final_points / result.points
+            if cumulative_mult > POST_SCORE_MULT_CAP:
+                final_points = result.points * POST_SCORE_MULT_CAP
+
+        # ── Re-enforce daily cap after all multipliers ───────────────
+
+        daily_cap = DAILY_CAP_DEFAULT
+        for max_tier, tier_cap in DAILY_CAP_TIERS:
+            if user["current_rank"] <= max_tier:
+                daily_cap = tier_cap
+                break
+        remaining_cap = max(0.0, daily_cap - daily_points)
+        if final_points > remaining_cap:
+            final_points = remaining_cap
+        if final_points <= 0:
+            final_points = 0
+
         # ── Determine new rank ───────────────────────────────────────
 
         new_total = user["total_score"] + final_points
@@ -444,6 +467,8 @@ class ScoringHandler(commands.Cog):
                             # Award 10 bonus points + 5 Circles to the replier
                             await update_user_score(user_id, 10)
                             await add_coins(user_id, 5)
+                            # Award the new member +5 pts for receiving a welcome
+                            await update_user_score(parent_msg.author.id, 5)
                             try:
                                 await message.add_reaction("👋")
                             except discord.HTTPException:
@@ -470,7 +495,11 @@ class ScoringHandler(commands.Cog):
             parent_id = message.reference.message_id
             if parent_id in self._conversation_starters:
                 starter = self._conversation_starters[parent_id]
-                starter[1] += 1  # increment reply count
+                # Only count replies with 3+ words (prevents "." farming)
+                if len(message.content.split()) < 3:
+                    pass  # Too short — don't count
+                else:
+                    starter[1] += 1  # increment reply count
                 if starter[1] >= 3 and not starter[2]:
                     # 3+ replies within the hour — award conversation starter bonus
                     starter[2] = True

@@ -134,6 +134,8 @@ final_score = BASE * SOCIAL * TEMPORAL * ENGAGEMENT * META
 
 ### Layer 6: Dynamic Daily Cap
 - Ranks 1-30: 500 pts/day | 31-60: 750 | 61-90: 1000 | 91-100: 1500
+- **Post-score multiplier cap:** `POST_SCORE_MULT_CAP = 10.0` — cumulative post-score multipliers (comeback × event × 2x × boost × drop × crit) capped at 10x
+- Daily cap re-enforced AFTER all post-score multipliers — prevents single-message exploits
 
 ### Post-Score Integrations (all wired in scoring_handler.py)
 - **Surprise 2x XP window:** If `VariableRewards.is_double_xp` is active, all points doubled
@@ -635,6 +637,16 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 - **NEW:** Event-exclusive badges — Participation badges awarded at end of mega events (Purge Survivor, Games Veteran, Community Builder).
 - **NEW:** Enhanced profiles — Display titles auto-derived from achievements. Prestige level shown.
 - **NEW:** Display title system — Config-driven title priority from event badges and milestone achievements.
+
+**Audit Fix 5 (2026-04-02) — 8 fixes across 7 files:**
+- ~~**Daily cap bypass by post-score multipliers:**~~ **FIXED** — Added `POST_SCORE_MULT_CAP = 10.0` (caps cumulative post-score multipliers at 10x). Re-enforces daily cap AFTER all multipliers applied. Previously a single message could earn 90,000+ pts.
+- ~~**Stale re-engagement DM copy:**~~ **FIXED** — All 4 DM tiers updated to match inverted comeback curve: Day 7 → "5x", Day 14 → "3x", Day 30 → "2x", Day 60 → "1.5x".
+- ~~**Conversation starter gameable:**~~ **FIXED** — Replies must be 3+ words to count toward the 3-reply threshold. Prevents single-character farming.
+- ~~**Personal highlight DMs bypass coordinator:**~~ **FIXED** — `weekly_recap.py` now calls `record_dm()` after each personal DM so other cogs see it.
+- ~~**Welcome wagon ignores new member:**~~ **FIXED** — New members now get +5 pts when someone welcomes them (replier still gets +10 pts + 5 coins).
+- ~~**Content engine column bug:**~~ **FIXED** — `quick_fire_log` restore query changed from `started_at` to `posted_at` (matching actual table schema).
+- **NEW:** Metrics alert system — If D7 retention < 30% or DAU/MAU < 0.25, auto-posts warning embed in admin/mod channel.
+- **NEW:** Config constants: `POST_SCORE_MULT_CAP`, `METRICS_ALERT_D7_THRESHOLD`, `METRICS_ALERT_DAU_MAU_THRESHOLD`.
 
 ---
 

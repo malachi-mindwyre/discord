@@ -307,7 +307,7 @@ class ContentEngine(commands.Cog):
             async with aiosqlite.connect(DB_PATH) as db:
                 db.row_factory = aiosqlite.Row
                 cursor = await db.execute(
-                    "SELECT id, message_id FROM quick_fire_log WHERE started_at > ? AND message_id IS NOT NULL",
+                    "SELECT id, message_id FROM quick_fire_log WHERE posted_at > ? AND message_id IS NOT NULL",
                     (cutoff,),
                 )
                 rows = await cursor.fetchall()
