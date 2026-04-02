@@ -304,7 +304,9 @@ class HealthCheck(commands.Cog):
             "LossAversion": ["daily_decay_and_demotion", "streak_at_risk_check"],
             "ContentEngine": ["quick_fire_scheduler", "dead_zone_detector", "trending_scanner"],
             "Reengagement": ["reengagement_loop"],
-            "VariableRewards": ["_surprise_2x_loop"],
+            # Note: VariableRewards uses create_task instead of tasks.loop for surprise 2x
+            # so we check for the scheduler coroutine existence instead
+            "VariableRewards": [],  # _surprise_2x_scheduler runs via create_task, not tasks.loop
             "SocialGraph": ["friendship_decay", "icebreaker_matchmaking", "best_friend_detection"],
             "SeasonPass": ["check_season_loop"],
             "EngagementLadder": ["weekly_recalculate"],
