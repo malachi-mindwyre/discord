@@ -290,12 +290,34 @@ class ContentEngine(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         """Start background tasks (guard against double-start on reconnect)."""
+        # Restore active Quick Fires from DB (survive restart)
+        await self._restore_active_fires()
+
         if not self.quick_fire_scheduler.is_running():
             self.quick_fire_scheduler.start()
         if not self.dead_zone_detector.is_running():
             self.dead_zone_detector.start()
         if not self.trending_scanner.is_running():
             self.trending_scanner.start()
+
+    async def _restore_active_fires(self):
+        """Repopulate _active_fires from DB for fires started within the last 2 hours."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+        try:
+            async with aiosqlite.connect(DB_PATH) as db:
+                db.row_factory = aiosqlite.Row
+                cursor = await db.execute(
+                    "SELECT id, message_id FROM quick_fire_log WHERE started_at > ? AND message_id IS NOT NULL",
+                    (cutoff,),
+                )
+                rows = await cursor.fetchall()
+                for row in rows:
+                    if row["message_id"]:
+                        self._active_fires[row["message_id"]] = row["id"]
+            if self._active_fires:
+                log.info("Restored %d active Quick Fire(s) from DB", len(self._active_fires))
+        except Exception as e:
+            log.debug("Could not restore active fires: %s", e)
 
     def cog_unload(self):
         self.quick_fire_scheduler.cancel()
@@ -513,8 +535,8 @@ class ContentEngine(commands.Cog):
         now = datetime.now(timezone.utc)
         hour = now.hour
 
-        # Only during peak hours: 14:00–03:00 UTC
-        if 3 <= hour < 14:
+        # Only during peak hours: 14:00–03:59 UTC
+        if 4 <= hour < 14:
             return
 
         last_msg_time = await _get_last_message_time()
@@ -713,6 +735,18 @@ class ContentEngine(commands.Cog):
 
     async def _handle_submission(self, ctx: commands.Context, content_type: str, content: str):
         """Process a content submission: charge coins, check auto-approve, store."""
+        # Rate limit: max 3 submissions per 24 hours per user
+        cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+        async with aiosqlite.connect(DB_PATH) as db:
+            cursor = await db.execute(
+                "SELECT COUNT(*) FROM content_submissions WHERE user_id = ? AND submitted_at > ?",
+                (ctx.author.id, cutoff_24h),
+            )
+            recent_count = (await cursor.fetchone())[0]
+        if recent_count >= 3:
+            await ctx.send("❌ You've hit the daily submission limit (3/day). Try again tomorrow.")
+            return
+
         # Check and spend coins
         success = await spend_coins(ctx.author.id, UGC_SUBMIT_COST)
         if not success:

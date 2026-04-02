@@ -593,6 +593,26 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 9. ~~**First-reply detection:**~~ **FIXED** — `parent_message_id` column added to messages table. `is_first_reply_to_message()` now does a real DB lookup instead of the 30% random heuristic. `log_message()` stores parent_message_id for replies.
 10. ~~**XP boost not fully wired:**~~ **FIXED** — scoring_handler now checks `active_boosts` table AND `VariableRewards.is_double_xp` for surprise 2x windows. Season XP also wired (50% of message score). Variable rewards delegation (mystery drops) connected.
 
+**Audit Fix 3 (2026-04-02) — 19 issues fixed across 8 files:**
+- ~~**Comeback multiplier never applied:**~~ **FIXED** — `scoring_handler.py` now applies `comeback_mult` to `final_points` before DB write.
+- ~~**Mega event multiplier not persisted:**~~ **FIXED** — Moved mega event multiplier before `update_user_score()` so it's saved to DB.
+- ~~**Rivalry weekly scoring never incremented:**~~ **FIXED** — `social_graph.py` now tracks rival scores on every message and runs weekly winner check on Mondays.
+- ~~**Displacement alert logic inverted:**~~ **FIXED** — Changed `position < new_position` to `position <= new_position` in `loss_aversion.py`.
+- ~~**Weekly streak detection broken:**~~ **FIXED** — `streaks_v2.py` now queries `messages` table for distinct active days instead of broken `streaks_v2` query.
+- ~~**Reengagement pipeline stuck on DM failure:**~~ **FIXED** — `reengagement.py` now advances tier even when DM send fails.
+- ~~**Best friend announcements re-trigger on restart:**~~ **FIXED** — Persisted to `best_friend_announcements` DB table instead of in-memory set.
+- ~~**Faction relegation unlock lost on restart:**~~ **FIXED** — Stored in `faction_relegation_unlock` DB table, checked on startup.
+- ~~**Quick Fire cache lost on restart:**~~ **FIXED** — `content_engine.py` restores `_active_fires` from DB on ready.
+- ~~**Social reply cache never cleaned:**~~ **FIXED** — `streaks_v2.py` cleans stale date keys in daily check.
+- ~~**Demotion grace period gameable:**~~ **FIXED** — Uses `first_seen` timestamp; requires sustained recovery above threshold before clearing watch.
+- ~~**UGC submissions no rate limit:**~~ **FIXED** — Max 3 submissions per 24 hours per user.
+- ~~**Dead NUDGE_5M handler:**~~ **FIXED** — Removed from dispatcher and deleted method.
+- ~~**'90% ahead' fabricated claim:**~~ **FIXED** — Replaced with honest copy.
+- ~~**Unused BEST_FRIEND_REPLY_BONUS:**~~ **FIXED** — Removed.
+- ~~**Icebreaker quest orphans:**~~ **FIXED** — Expired quests cleaned in matchmaking loop.
+- ~~**Dead zone off-by-one:**~~ **FIXED** — Peak hours now correctly include 03:00 UTC.
+- ~~**Challenge completion early return:**~~ **FIXED** — Multiple challenges can now complete per action.
+
 ---
 
 ## CRITICAL: Standing Instructions for Every Session

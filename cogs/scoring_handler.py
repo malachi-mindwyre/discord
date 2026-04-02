@@ -285,6 +285,19 @@ class ScoringHandler(commands.Cog):
 
         final_points = result.points
 
+        # ── Apply comeback multiplier (3x/5x/3x by tier) ────────────
+
+        if comeback_mult > 1.0:
+            final_points *= comeback_mult
+
+        # ── Apply mega event multiplier (if active) ──────────────────
+
+        mega_cog = self.bot.get_cog("MegaEvents")
+        if mega_cog:
+            event_mult = mega_cog.active_event_multiplier
+            if event_mult > 1.0:
+                final_points *= event_mult
+
         # ── Apply server-wide 2x XP window (if active) ──────────────
 
         vr_cog = self.bot.get_cog("VariableRewards")
@@ -395,14 +408,6 @@ class ScoringHandler(commands.Cog):
             # Use base * social * temporal * meta (skip engagement layer's DR)
             raw_season_base = result.base_score * result.social_mult * result.temporal_mult * result.meta_mult
             await season_cog.add_season_xp(user_id, max(1, int(raw_season_base * 0.5)))
-
-        # ── Mega Event multiplier (if active) ────────────────────────
-
-        mega_cog = self.bot.get_cog("MegaEvents")
-        if mega_cog:
-            event_mult = mega_cog.active_event_multiplier
-            if event_mult > 1.0:
-                final_points *= event_mult
 
         # ── Welcome Wagon: reward users who reply to new members ─────
 

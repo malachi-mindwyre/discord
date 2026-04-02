@@ -67,6 +67,11 @@ async def _ensure_tables():
 
             CREATE INDEX IF NOT EXISTS idx_displacement_user
                 ON displacement_log(user_id, timestamp);
+
+            CREATE TABLE IF NOT EXISTS faction_relegation_unlock (
+                channel_name TEXT PRIMARY KEY,
+                unlock_at TEXT NOT NULL
+            );
         """)
         await db.commit()
 
@@ -135,6 +140,8 @@ class LossAversion(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         """Start background tasks (guard against double-start on reconnect)."""
+        await self._ensure_ready()
+        await self._check_pending_unlocks()
         if not self.daily_decay_and_demotion.is_running():
             self.daily_decay_and_demotion.start()
         if not self.streak_at_risk_check.is_running():
@@ -233,8 +240,16 @@ class LossAversion(commands.Cog):
             # Is the user's score below their current rank's threshold?
             if score < current_rank.threshold:
                 watch = await _get_demotion_watch(user_id)
-                days_below = (watch["days_below"] + 1) if watch else 1
-                await _set_demotion_watch(user_id, days_below)
+                if watch:
+                    # Check how long they've been below threshold (use first_seen timestamp)
+                    first_seen = datetime.fromisoformat(watch["first_seen"])
+                    days_below = (datetime.utcnow() - first_seen).days
+                    # Update days_below count for display purposes
+                    await _set_demotion_watch(user_id, days_below)
+                else:
+                    # First time below threshold — start tracking
+                    days_below = 0
+                    await _set_demotion_watch(user_id, 0)
 
                 if days_below >= RANK_DEMOTION_GRACE_DAYS:
                     # Demote: find the correct rank for their current score
@@ -249,8 +264,15 @@ class LossAversion(commands.Cog):
                         user_id, current_rank.name, new_rank.name, score,
                     )
             else:
-                # Score is back above threshold — clear the watch
-                await _clear_demotion_watch(user_id)
+                # Score recovered above threshold — but don't clear immediately.
+                # Track via negative days_below to require sustained recovery.
+                watch = await _get_demotion_watch(user_id)
+                if watch and watch["days_below"] >= 0:
+                    # First day of recovery: mark as -1 (1 day above)
+                    await _set_demotion_watch(user_id, -1)
+                elif watch and watch["days_below"] < 0:
+                    # Sustained above threshold — safe to clear
+                    await _clear_demotion_watch(user_id)
 
     async def _announce_demotion(
         self,
@@ -455,8 +477,8 @@ class LossAversion(commands.Cog):
             if displaced_id == climber_id:
                 continue
 
-            # Only alert users in the proximity zone who got bumped
-            if position < new_position or position > DISPLACEMENT_PROXIMITY:
+            # Only alert users in the proximity zone who got bumped down
+            if position <= new_position or position > DISPLACEMENT_PROXIMITY:
                 continue
 
             # Check cooldown
@@ -604,16 +626,27 @@ class LossAversion(commands.Cog):
             except discord.HTTPException:
                 pass
 
-        # Schedule unlock after 24 hours
+        # Persist unlock time to DB (survives restart)
+        unlock_at = (now + timedelta(hours=24)).isoformat()
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
+                """INSERT OR REPLACE INTO faction_relegation_unlock (channel_name, unlock_at)
+                   VALUES (?, ?)""",
+                (channel_name, unlock_at),
+            )
+            await db.commit()
+
+        # Also schedule in-memory for this session
         self.bot.loop.call_later(
-            86400,  # 24 hours in seconds
+            86400,
             lambda: self.bot.loop.create_task(
-                self._unlock_faction_channel(guild, team_channel)
+                self._unlock_faction_channel(guild, team_channel, channel_name)
             ),
         )
 
     async def _unlock_faction_channel(
-        self, guild: discord.Guild, channel: discord.TextChannel | None
+        self, guild: discord.Guild, channel: discord.TextChannel | None,
+        channel_name: str = "",
     ):
         """Re-enable sending in a faction channel after relegation ends."""
         if not channel:
@@ -630,6 +663,36 @@ class LossAversion(commands.Cog):
             logger.info("Faction relegation ended: unlocked #%s", channel.name)
         except discord.HTTPException:
             pass
+
+        # Clean up DB entry
+        cname = channel_name or channel.name
+        if cname:
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "DELETE FROM faction_relegation_unlock WHERE channel_name = ?",
+                    (cname,),
+                )
+                await db.commit()
+
+    async def _check_pending_unlocks(self):
+        """On startup, unlock any channels whose relegation period has passed."""
+        guild = self._get_guild()
+        if not guild:
+            return
+
+        now = datetime.utcnow().isoformat()
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT channel_name, unlock_at FROM faction_relegation_unlock WHERE unlock_at <= ?",
+                (now,),
+            )
+            rows = [dict(r) for r in await cursor.fetchall()]
+
+        for row in rows:
+            channel = discord.utils.get(guild.text_channels, name=row["channel_name"])
+            if channel:
+                await self._unlock_faction_channel(guild, channel, row["channel_name"])
 
     @faction_relegation.before_loop
     async def before_faction_relegation(self):

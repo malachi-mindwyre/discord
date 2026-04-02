@@ -34,10 +34,10 @@ ICEBREAKER_CHECK_HOURS = 12
 ICEBREAKER_REPLY_GOAL = 3
 ICEBREAKER_REWARD_POINTS = 25
 ICEBREAKER_REWARD_COINS = 10
-BEST_FRIEND_REPLY_BONUS = 0.05
 RIVAL_COST = 50
 RIVAL_DURATION_WEEKS = 4
 RIVAL_WINNER_COINS = 25
+RIVAL_CHECK_DAY = 0  # Monday
 EMBED_COLOR_PRIMARY = 0x1A1A2E
 EMBED_COLOR_ACCENT = 0xE94560
 
@@ -91,17 +91,21 @@ class SocialGraph(commands.Cog):
     async def on_ready(self):
         """Start background tasks (guard against double-start on reconnect)."""
         await _ensure_quest_table()
+        await _ensure_bf_announce_table()
         if not self.friendship_decay.is_running():
             self.friendship_decay.start()
         if not self.icebreaker_matchmaking.is_running():
             self.icebreaker_matchmaking.start()
         if not self.best_friend_detection.is_running():
             self.best_friend_detection.start()
+        if not self.weekly_rivalry_check.is_running():
+            self.weekly_rivalry_check.start()
 
     def cog_unload(self):
         self.friendship_decay.cancel()
         self.icebreaker_matchmaking.cancel()
         self.best_friend_detection.cancel()
+        self.weekly_rivalry_check.cancel()
 
     # ═══════════════════════════════════════════════════════════════════════
     # LISTENERS — Interaction Tracking
@@ -132,6 +136,9 @@ class SocialGraph(commands.Cog):
         for mentioned in message.mentions:
             if not mentioned.bot and mentioned.id != user_id:
                 await update_social_interaction(user_id, mentioned.id, "mention")
+
+        # ─── Rivalry score tracking ───────────────────────────────────
+        await self._update_rival_score(user_id)
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
@@ -210,6 +217,20 @@ class SocialGraph(commands.Cog):
 
     @best_friend_detection.before_loop
     async def before_best_friend(self):
+        await self.bot.wait_until_ready()
+
+    @tasks.loop(hours=24)
+    async def weekly_rivalry_check(self):
+        """On Monday, compare rival weekly scores, award winners, reset scores."""
+        if datetime.utcnow().weekday() != RIVAL_CHECK_DAY:
+            return
+        try:
+            await self._run_weekly_rivalry_check()
+        except Exception as e:
+            logger.error("Social graph: weekly rivalry check failed — %s", e)
+
+    @weekly_rivalry_check.before_loop
+    async def before_rivalry_check(self):
         await self.bot.wait_until_ready()
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -483,6 +504,15 @@ class SocialGraph(commands.Cog):
 
     async def _run_icebreaker_matchmaking(self):
         """Find new members with few connections and pair them with active members."""
+        # Clean up expired quests older than 24h
+        cutoff_24h = (datetime.utcnow() - timedelta(hours=24)).isoformat()
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute(
+                "DELETE FROM connection_quests WHERE completed = 0 AND started_at < ?",
+                (cutoff_24h,),
+            )
+            await db.commit()
+
         for guild in self.bot.guilds:
             cutoff = datetime.utcnow() - timedelta(days=7)
 
@@ -596,15 +626,30 @@ class SocialGraph(commands.Cog):
         for uid, friend_id in top_map.items():
             if top_map.get(friend_id) == uid:
                 pair = (min(uid, friend_id), max(uid, friend_id))
-                if pair in self._announced_bf:
-                    continue
+
+                # Check DB to see if we already announced this pair recently
+                async with aiosqlite.connect(DB_PATH) as db:
+                    cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()
+                    cursor = await db.execute(
+                        "SELECT 1 FROM best_friend_announcements WHERE user_a = ? AND user_b = ? AND announced_at > ?",
+                        (pair[0], pair[1], cutoff),
+                    )
+                    if await cursor.fetchone():
+                        continue
 
                 # Check minimum score threshold
                 uid_friends = await get_top_friends(uid, limit=1)
                 if not uid_friends or uid_friends[0]["friendship_score"] < BEST_FRIEND_MIN_SCORE:
                     continue
 
-                self._announced_bf.add(pair)
+                # Persist announcement to DB
+                async with aiosqlite.connect(DB_PATH) as db:
+                    await db.execute(
+                        """INSERT OR REPLACE INTO best_friend_announcements (user_a, user_b, announced_at)
+                           VALUES (?, ?, ?)""",
+                        (pair[0], pair[1], datetime.utcnow().isoformat()),
+                    )
+                    await db.commit()
 
                 # Announce in #general
                 for guild in self.bot.guilds:
@@ -633,6 +678,102 @@ class SocialGraph(commands.Cog):
                     break
 
                 logger.info("Best friend pair announced: %s <-> %s", pair[0], pair[1])
+
+
+    async def _update_rival_score(self, user_id: int):
+        """Increment weekly score for any active rivalry involving this user."""
+        now = datetime.utcnow().isoformat()
+        async with aiosqlite.connect(DB_PATH) as db:
+            # Check if user is user_a in any active rivalry
+            await db.execute(
+                """UPDATE rivals SET user_a_weekly_score = user_a_weekly_score + 1
+                   WHERE user_a = ? AND expires_at > ?""",
+                (user_id, now),
+            )
+            # Check if user is user_b in any active rivalry
+            await db.execute(
+                """UPDATE rivals SET user_b_weekly_score = user_b_weekly_score + 1
+                   WHERE user_b = ? AND expires_at > ?""",
+                (user_id, now),
+            )
+            await db.commit()
+
+    async def _run_weekly_rivalry_check(self):
+        """Compare rival weekly scores, award winners, reset for next week."""
+        now = datetime.utcnow()
+        guild = self.bot.guilds[0] if self.bot.guilds else None
+        general = discord.utils.get(guild.text_channels, name="general") if guild else None
+
+        async with aiosqlite.connect(DB_PATH) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                "SELECT * FROM rivals WHERE expires_at > ?",
+                (now.isoformat(),),
+            )
+            rivals = [dict(r) for r in await cursor.fetchall()]
+
+        for rival in rivals:
+            a_score = rival.get("user_a_weekly_score", 0)
+            b_score = rival.get("user_b_weekly_score", 0)
+            user_a = rival["user_a"]
+            user_b = rival["user_b"]
+
+            winner_id = None
+            loser_id = None
+            if a_score > b_score:
+                winner_id, loser_id = user_a, user_b
+            elif b_score > a_score:
+                winner_id, loser_id = user_b, user_a
+            # Tie = no winner
+
+            if winner_id:
+                await add_coins(winner_id, RIVAL_WINNER_COINS)
+
+            # Reset weekly scores
+            async with aiosqlite.connect(DB_PATH) as db:
+                await db.execute(
+                    "UPDATE rivals SET user_a_weekly_score = 0, user_b_weekly_score = 0 WHERE user_a = ? AND user_b = ?",
+                    (user_a, user_b),
+                )
+                await db.commit()
+
+            # Announce
+            if general and guild and winner_id:
+                w_member = guild.get_member(winner_id)
+                l_member = guild.get_member(loser_id)
+                w_name = w_member.display_name if w_member else f"User {winner_id}"
+                l_name = l_member.display_name if l_member else f"User {loser_id}"
+                try:
+                    await general.send(
+                        f"⚔️ **RIVALRY UPDATE** — **{w_name}** beat **{l_name}** this week "
+                        f"({a_score if winner_id == user_a else b_score} vs "
+                        f"{b_score if winner_id == user_a else a_score}) "
+                        f"and earned **{RIVAL_WINNER_COINS}** 🪙!",
+                        delete_after=3600,
+                    )
+                except discord.HTTPException:
+                    pass
+
+        # Clean up expired rivalries
+        async with aiosqlite.connect(DB_PATH) as db:
+            await db.execute("DELETE FROM rivals WHERE expires_at <= ?", (now.isoformat(),))
+            await db.commit()
+
+        logger.info("Weekly rivalry check complete: %d active rivalries processed", len(rivals))
+
+
+async def _ensure_bf_announce_table():
+    """Create best_friend_announcements table for persisting announced pairs."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS best_friend_announcements (
+                user_a INTEGER NOT NULL,
+                user_b INTEGER NOT NULL,
+                announced_at TEXT NOT NULL,
+                PRIMARY KEY (user_a, user_b)
+            )
+        """)
+        await db.commit()
 
 
 async def setup(bot: commands.Bot):

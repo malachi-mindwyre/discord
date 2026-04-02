@@ -464,28 +464,30 @@ class Reengagement(commands.Cog):
                 continue
 
             # Send the DM
+            dm_sent = False
             try:
                 await member.send(embed=embed)
                 await global_record_dm(user_id, "reengagement")
+                dm_sent = True
                 logger.info(
                     "Reengagement DM sent: user=%s tier=%s days_inactive=%d",
                     user_id, tier_id, days_inactive,
                 )
             except (discord.HTTPException, discord.Forbidden):
                 logger.debug(
-                    "Reengagement DM failed (blocked/disabled): user=%s", user_id
+                    "Reengagement DM failed (blocked/disabled): user=%s tier=%s",
+                    user_id, tier_id,
                 )
-                continue
 
-            # Update state
+            # Always advance tier (even if DM failed) to prevent stuck pipeline
             now_iso = datetime.utcnow().isoformat()
             opted = 1 if tier_id == "day60_final" else 0
             await _upsert_state(
                 user_id,
                 current_tier=tier_id,
-                last_dm_sent=now_iso,
+                last_dm_sent=now_iso if dm_sent else None,
                 last_dm_tier=tier_id,
-                total_dms_sent=1,  # incremented via ON CONFLICT
+                total_dms_sent=1 if dm_sent else 0,
                 opted_out=opted,
             )
 

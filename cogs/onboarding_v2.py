@@ -252,7 +252,6 @@ class OnboardingV2(commands.Cog):
         """Route to the correct DM builder for a given stage."""
         handler = {
             STAGE_WELCOME:          self._send_welcome,
-            STAGE_NUDGE_5M:         self._send_nudge_5m,
             STAGE_PROGRESS_1H:      self._send_progress_1h,
             STAGE_STREAK_ANCHOR_4H: self._send_streak_anchor_4h,
             STAGE_CHECKIN_24H:      self._send_checkin_24h,
@@ -288,7 +287,7 @@ class OnboardingV2(commands.Cog):
                 f"⬜ Post an intro in {intro_mention} → **+{ONBOARDING_QUEST_INTRO_POINTS} pts**\n"
                 f"⬜ Reply to someone's message → **3x points**\n"
                 f"⬜ Type `!daily` in any channel → **+10 Circles** 🪙\n\n"
-                f"Complete all 4 and you'll be ahead of **90%** of new members.\n\n"
+                f"Complete all 4 to unlock your first streak bonus.\n\n"
                 f"*The Circle remembers everything. Your journey starts now.*"
             ),
             color=EMBED_COLOR_PRIMARY,
@@ -319,36 +318,6 @@ class OnboardingV2(commands.Cog):
                     pass
             await _record_dm(member.id, STAGE_WELCOME, dm_log, new_stage="welcomed")
             logger.info("Sent welcome FALLBACK (DMs disabled) for %s (%s)", member, member.id)
-
-    async def _send_nudge_5m(self, member: discord.Member, guild: discord.Guild, state: dict):
-        """T+5min: If no message yet, nudge about First Words badge."""
-        dm_log = _parse_dm_log(state.get("dm_log"))
-        if STAGE_NUDGE_5M in dm_log:
-            return
-
-        # Skip this nudge if the user already sent a message
-        if state.get("first_message_at"):
-            await _record_dm(member.id, STAGE_NUDGE_5M, dm_log)
-            return
-
-        general_ch = self._find_channel(guild, "general")
-        general_mention = general_ch.mention if general_ch else "#general"
-
-        embed = discord.Embed(
-            title="👀 KEEPER IS WATCHING",
-            description=(
-                f"Still quiet, **{member.display_name}**? The Circle doesn't reward lurkers.\n\n"
-                f"🏅 There's a hidden badge — **First Words** — for members who speak up early.\n\n"
-                f"Drop a message in {general_mention}. Even \"hey\" counts.\n\n"
-                f"*Silence is comfortable. But The Circle rewards the bold.*"
-            ),
-            color=EMBED_COLOR_ACCENT,
-        )
-
-        sent = await _safe_dm(member, embed)
-        if sent:
-            await _record_dm(member.id, STAGE_NUDGE_5M, dm_log)
-            logger.info("Sent 5m nudge to %s (%s)", member, member.id)
 
     async def _send_progress_1h(self, member: discord.Member, guild: discord.Guild, state: dict):
         """T+1hr: Quest progress update or social proof."""

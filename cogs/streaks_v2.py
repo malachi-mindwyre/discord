@@ -434,6 +434,13 @@ class StreaksV2(commands.Cog):
         try:
             today = date.today()
 
+            # Clean up stale social reply cache entries from previous days
+            if hasattr(self.bot, "_social_reply_cache"):
+                today_str = today.isoformat()
+                stale_keys = [k for k in self.bot._social_reply_cache if not k.endswith(today_str)]
+                for k in stale_keys:
+                    del self.bot._social_reply_cache[k]
+
             # Weekly streak check on Monday (checks the previous week)
             if today.weekday() == 0:
                 await self._process_weekly_streaks()
@@ -452,32 +459,18 @@ class StreaksV2(commands.Cog):
         """Check all users' daily activity over the past 7 days.
 
         If a user was active 5+ of 7 days, increment their weekly streak.
+        Uses the messages table as the authoritative source of daily activity.
         """
         today = date.today()
         week_start = (today - timedelta(days=7)).isoformat()
 
         async with aiosqlite.connect(DB_PATH) as db:
-            # Count distinct active days per user in the last 7 days
-            cursor = await db.execute(
-                """SELECT user_id, COUNT(DISTINCT last_activity) as active_days
-                   FROM streaks_v2
-                   WHERE streak_type = 'daily' AND last_activity >= ?
-                   GROUP BY user_id
-                   HAVING active_days >= 5
-                """,
-                (week_start,),
-            )
-            # Note: the above query only checks the daily streak row's last_activity,
-            # but we need actual daily activity counts. Use daily_scores table instead.
-            pass
-
-        # Better approach: use daily_scores table if it exists
-        async with aiosqlite.connect(DB_PATH) as db:
+            # Use messages table: count distinct days a user sent a scored message
             try:
                 cursor = await db.execute(
-                    """SELECT user_id, COUNT(DISTINCT score_date) as active_days
-                       FROM daily_scores
-                       WHERE score_date >= ?
+                    """SELECT user_id, COUNT(DISTINCT date(timestamp)) as active_days
+                       FROM messages
+                       WHERE timestamp >= ?
                        GROUP BY user_id
                        HAVING active_days >= 5
                     """,
@@ -485,8 +478,20 @@ class StreaksV2(commands.Cog):
                 )
                 rows = await cursor.fetchall()
             except aiosqlite.OperationalError:
-                # daily_scores table might not exist
-                rows = []
+                # Fallback to daily_scores if messages table has different schema
+                try:
+                    cursor = await db.execute(
+                        """SELECT user_id, COUNT(DISTINCT score_date) as active_days
+                           FROM daily_scores
+                           WHERE score_date >= ?
+                           GROUP BY user_id
+                           HAVING active_days >= 5
+                        """,
+                        (week_start,),
+                    )
+                    rows = await cursor.fetchall()
+                except aiosqlite.OperationalError:
+                    rows = []
 
             for row in rows:
                 user_id = row[0]

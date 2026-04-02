@@ -842,6 +842,8 @@ class SeasonPass(commands.Cog):
             )
             challenges = await cursor.fetchall()
 
+            completed_xp = []
+
             for challenge_id, target_value, xp_reward in challenges:
                 # Upsert progress
                 await db.execute(
@@ -864,12 +866,13 @@ class SeasonPass(commands.Cog):
                         "UPDATE season_challenge_completions SET completed = 1, completed_at = ? WHERE user_id = ? AND challenge_id = ?",
                         (datetime.now(timezone.utc).isoformat(), user_id, challenge_id),
                     )
-                    # Award XP for challenge completion
-                    await db.commit()
-                    await self.add_season_xp(user_id, xp_reward)
-                    return  # add_season_xp handles its own commit
+                    completed_xp.append(xp_reward)
 
             await db.commit()
+
+        # Award XP for all completed challenges (outside the DB context)
+        for xp in completed_xp:
+            await self.add_season_xp(user_id, xp)
 
     # ─── Listener: Score → Season XP (1:1) ────────────────────────────────────
 
