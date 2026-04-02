@@ -619,6 +619,28 @@ async def init_db():
             CREATE INDEX IF NOT EXISTS idx_active_boosts ON active_boosts(user_id, expires_at);
         """)
 
+    # ── Schema Migrations (safe to run repeatedly) ──────────────────────────
+    await _run_migrations()
+
+
+async def _run_migrations():
+    """Add new columns to existing tables. Each ALTER is wrapped in try/except
+    so it's safe to run repeatedly (column already exists = no-op)."""
+    migrations = [
+        "ALTER TABLE messages ADD COLUMN parent_message_id INTEGER",
+        "ALTER TABLE confessions ADD COLUMN message_id INTEGER",
+        "ALTER TABLE metrics_daily ADD COLUMN onboarding_total INTEGER DEFAULT 0",
+        "ALTER TABLE metrics_daily ADD COLUMN onboarding_messaged INTEGER DEFAULT 0",
+        "ALTER TABLE metrics_daily ADD COLUMN onboarding_graduated INTEGER DEFAULT 0",
+    ]
+    async with aiosqlite.connect(DB_PATH) as db:
+        for sql in migrations:
+            try:
+                await db.execute(sql)
+            except Exception:
+                pass  # Column already exists
+        await db.commit()
+
 
 # ─── User Operations ───────────────────────────────────────────────────────
 
