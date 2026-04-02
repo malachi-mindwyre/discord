@@ -178,7 +178,12 @@ class Reengagement(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.reengagement_loop.start()
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Start background tasks (guard against double-start on reconnect)."""
+        if not self.reengagement_loop.is_running():
+            self.reengagement_loop.start()
 
     def cog_unload(self):
         self.reengagement_loop.cancel()

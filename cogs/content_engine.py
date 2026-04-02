@@ -286,10 +286,15 @@ class ContentEngine(commands.Cog):
         self._word_tracker: Dict[str, Dict[int, int]] = defaultdict(lambda: defaultdict(int))
         self._word_window_start: datetime = datetime.now(timezone.utc)
 
-        # Start background tasks
-        self.quick_fire_scheduler.start()
-        self.dead_zone_detector.start()
-        self.trending_scanner.start()
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Start background tasks (guard against double-start on reconnect)."""
+        if not self.quick_fire_scheduler.is_running():
+            self.quick_fire_scheduler.start()
+        if not self.dead_zone_detector.is_running():
+            self.dead_zone_detector.start()
+        if not self.trending_scanner.is_running():
+            self.trending_scanner.start()
 
     def cog_unload(self):
         self.quick_fire_scheduler.cancel()

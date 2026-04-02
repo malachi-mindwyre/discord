@@ -4,11 +4,24 @@ Main entry point. Loads all cogs and initializes the database.
 """
 
 import asyncio
+import logging
+import traceback
+
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from config import DISCORD_TOKEN, BOT_PREFIX, GUILD_ID
 from database import init_db
+
+# ─── Logging Setup ─────────────────────────────────────────────────────
+# Ensure all discord.py task errors get printed to stdout (visible in journalctl)
+logging.basicConfig(
+    level=logging.WARNING,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+)
+# Make task errors loud
+logging.getLogger("discord.ext.tasks").setLevel(logging.ERROR)
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -80,6 +93,38 @@ async def on_ready():
         name="The Circle"
     )
     await bot.change_presence(activity=activity)
+
+    # Wait 15 seconds then check all background tasks
+    await asyncio.sleep(15)
+    task_map = {
+        "LossAversion": ["daily_decay_and_demotion", "streak_at_risk_check"],
+        "ContentEngine": ["quick_fire_scheduler", "dead_zone_detector", "trending_scanner"],
+        "Reengagement": ["reengagement_loop"],
+        "VariableRewards": ["_surprise_2x_loop"],
+        "SocialGraph": ["friendship_decay", "icebreaker_matchmaking", "best_friend_detection"],
+        "SeasonPass": ["check_season_loop", "check_challenges_loop"],
+        "EngagementLadder": ["weekly_recalculate"],
+    }
+    for cog_name, task_names in task_map.items():
+        cog = bot.get_cog(cog_name)
+        if not cog:
+            print(f"  ⚠ Task check: cog {cog_name} not found")
+            continue
+        for task_name in task_names:
+            task = getattr(cog, task_name, None)
+            if task and hasattr(task, "is_running"):
+                if task.is_running():
+                    print(f"  ✓ Task {cog_name}.{task_name} running")
+                else:
+                    # Try to get the exception that killed it
+                    exc = task.get_task().exception() if task.get_task() and task.get_task().done() else None
+                    if exc:
+                        print(f"  ✗ Task {cog_name}.{task_name} CRASHED: {exc}")
+                        traceback.print_exception(type(exc), exc, exc.__traceback__)
+                    else:
+                        print(f"  ✗ Task {cog_name}.{task_name} not running (no exception captured)")
+            else:
+                print(f"  ⚠ Task {cog_name}.{task_name} attribute not found")
 
 
 async def main():

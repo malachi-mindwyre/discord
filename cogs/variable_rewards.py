@@ -54,8 +54,11 @@ class VariableRewards(commands.Cog):
         # ── Mystery drop counter ──
         self._global_scored_counter: int = 0
 
-        # Start background loops
-        self._surprise_2x_loop.start()
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Start background tasks (guard against double-start on reconnect)."""
+        if not self._surprise_2x_loop.is_running():
+            self._surprise_2x_loop.start()
 
     def cog_unload(self):
         self._surprise_2x_loop.cancel()

@@ -72,9 +72,15 @@ class SocialGraph(commands.Cog):
         # Track announced best-friend pairs so we don't repeat
         self._announced_bf: set[tuple[int, int]] = set()
 
-        self.friendship_decay.start()
-        self.icebreaker_matchmaking.start()
-        self.best_friend_detection.start()
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Start background tasks (guard against double-start on reconnect)."""
+        if not self.friendship_decay.is_running():
+            self.friendship_decay.start()
+        if not self.icebreaker_matchmaking.is_running():
+            self.icebreaker_matchmaking.start()
+        if not self.best_friend_detection.is_running():
+            self.best_friend_detection.start()
 
     def cog_unload(self):
         self.friendship_decay.cancel()

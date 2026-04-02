@@ -124,9 +124,16 @@ class LossAversion(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._tables_ready = False
-        self.daily_decay_and_demotion.start()
-        self.streak_at_risk_check.start()
-        self.faction_relegation.start()
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        """Start background tasks (guard against double-start on reconnect)."""
+        if not self.daily_decay_and_demotion.is_running():
+            self.daily_decay_and_demotion.start()
+        if not self.streak_at_risk_check.is_running():
+            self.streak_at_risk_check.start()
+        if not self.faction_relegation.is_running():
+            self.faction_relegation.start()
 
     def cog_unload(self):
         self.daily_decay_and_demotion.cancel()
