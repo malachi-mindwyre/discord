@@ -63,6 +63,8 @@ from database import (
     get_reply_chain_depth,
     is_first_reply_to_message,
     get_active_boost,
+    get_onboarding_state,
+    update_onboarding_stage,
 )
 
 
@@ -143,6 +145,27 @@ class ScoringHandler(commands.Cog):
 
         # Get or create user in DB
         user = await get_or_create_user(user_id, username)
+
+        # ── First-message instant feedback ───────────────────────────────
+        is_first_ever = user["total_score"] == 0
+        if is_first_ever:
+            # Check if joined within last 24h
+            joined = datetime.fromisoformat(user["joined_at"])
+            if (datetime.utcnow() - joined).total_seconds() < 86400:
+                try:
+                    await message.channel.send(
+                        f"⚡ {message.author.mention} just said their first words. The Circle is watching.",
+                        delete_after=30,
+                    )
+                except discord.HTTPException:
+                    pass
+                # Update onboarding state
+                ob_state = await get_onboarding_state(user_id)
+                if ob_state and not ob_state.get("first_message_at"):
+                    await update_onboarding_stage(
+                        user_id, ob_state.get("stage", "active"),
+                        first_message_at=datetime.utcnow().isoformat(),
+                    )
 
         # Check if this is a comeback
         last_active = datetime.fromisoformat(user["last_active"])
@@ -311,9 +334,13 @@ class ScoringHandler(commands.Cog):
             new_rank=new_rank.tier if ranked_up else None,
         )
         await add_daily_points(user_id, final_points)
+        parent_msg_id = None
+        if is_reply and message.reference and message.reference.message_id:
+            parent_msg_id = message.reference.message_id
         await log_message(
             user_id, message.channel.id, quality["word_count"],
             has_media, is_reply, has_mention, final_points,
+            parent_message_id=parent_msg_id,
         )
 
         # Economy: award coins

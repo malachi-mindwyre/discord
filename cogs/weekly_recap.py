@@ -1,11 +1,12 @@
 """
-The Circle — Weekly Recap Cog
-Posts a highlights embed every Sunday.
+The Circle — Weekly Recap Cog (Sunday Ceremony)
+Multi-embed ceremony every Sunday: stats, streaks, social bonds, faction standings.
 """
 
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime, timedelta
 
 import discord
@@ -18,7 +19,16 @@ from config import (
     EMBED_COLOR_PRIMARY,
     EMBED_COLOR_ACCENT,
 )
-from database import get_weekly_stats, get_top_streaks
+from database import (
+    get_weekly_stats,
+    get_top_streaks,
+    get_weekly_voice_minutes,
+    get_weekly_best_friend_pair,
+    get_weekly_achievements_count,
+    get_weekly_faction_standings,
+)
+
+logger = logging.getLogger("circle.weekly_recap")
 
 
 class WeeklyRecap(commands.Cog):
@@ -31,83 +41,173 @@ class WeeklyRecap(commands.Cog):
 
     @tasks.loop(hours=168)  # Weekly
     async def post_weekly_recap(self):
-        """Post weekly recap embed."""
+        """Post the Sunday Ceremony — a multi-embed weekly summary."""
         stats = await get_weekly_stats()
-        top_streaks = await get_top_streaks(3)
+        top_streaks = await get_top_streaks(5)
+        voice_minutes = await get_weekly_voice_minutes()
+        best_pair = await get_weekly_best_friend_pair()
+        badges_count = await get_weekly_achievements_count()
+        faction_standings = await get_weekly_faction_standings()
 
         for guild in self.bot.guilds:
             channel = discord.utils.get(guild.text_channels, name=WEEKLY_RECAP_CHANNEL)
             if not channel:
                 continue
 
-            embed = discord.Embed(
-                title="📊 WEEKLY RECAP — THE CIRCLE",
-                description="The Circle never sleeps. Here's what happened this week.\n\n━━━━━━━━━━━━━━━━━━━━━",
+            embeds = []
+
+            # ── Embed 1: Stats Overview ───────────────────────────────────
+            embed1 = discord.Embed(
+                title="📊 SUNDAY CEREMONY — THE CIRCLE",
+                description=(
+                    "The Circle never sleeps. Here's what happened this week.\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━"
+                ),
                 color=EMBED_COLOR_ACCENT,
             )
 
-            # Overall stats
-            embed.add_field(
+            embed1.add_field(
                 name="📈 THIS WEEK",
                 value=(
                     f"💬 **{stats['total_messages']:,}** messages sent\n"
                     f"👥 **{stats['active_users']}** active members\n"
-                    f"❤️ **{stats['total_reactions']:,}** reactions given"
+                    f"❤️ **{stats['total_reactions']:,}** reactions given\n"
+                    f"🎤 **{voice_minutes / 60:.1f}** hours in voice\n"
+                    f"🏅 **{badges_count}** badges unlocked"
                 ),
                 inline=False,
             )
 
-            # Top poster
             if stats["top_poster"]:
                 tp = stats["top_poster"]
-                embed.add_field(
+                embed1.add_field(
                     name="👑 TOP POSTER",
                     value=f"**{tp['username']}** — {tp['week_points']:,.0f} pts ({tp['msg_count']} msgs)",
                     inline=True,
                 )
 
-            # Most social
             if stats["most_social"]:
                 ms = stats["most_social"]
-                embed.add_field(
+                embed1.add_field(
                     name="🗣️ MOST SOCIAL",
                     value=f"**{ms['username']}** — {ms['reply_count']} replies",
                     inline=True,
                 )
 
-            # Biggest climber
             if stats["biggest_climber"]:
                 bc = stats["biggest_climber"]
-                embed.add_field(
+                embed1.add_field(
                     name="🚀 BIGGEST CLIMBER",
                     value=f"**{bc['username']}** — gained {bc['tiers_gained']} rank(s)",
                     inline=True,
                 )
 
-            # Top streaks
-            if top_streaks:
-                streak_lines = []
-                for i, s in enumerate(top_streaks):
-                    streak_lines.append(f"{'🥇🥈🥉'[i] if i < 3 else '#'+str(i+1)} **{s['username']}** — {s['current_streak']} days")
-                embed.add_field(
-                    name="🔥 HOTTEST STREAKS",
-                    value="\n".join(streak_lines),
-                    inline=False,
-                )
-
-            # Fun stat
             if stats["top_poster"] and stats["total_messages"] > 0:
                 msgs_per_person = stats["total_messages"] / max(stats["active_users"], 1)
-                embed.add_field(
+                embed1.add_field(
                     name="📱 FUN STAT",
                     value=f"Average member sent **{msgs_per_person:.0f}** messages this week.",
                     inline=False,
                 )
 
-            embed.set_footer(text="See you next Sunday. Keep climbing. 🏔️")
+            embeds.append(embed1)
 
+            # ── Embed 2: Streak Hall ──────────────────────────────────────
+            if top_streaks:
+                streak_lines = []
+                medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+                for i, s in enumerate(top_streaks):
+                    medal = medals[i] if i < len(medals) else f"#{i+1}"
+                    streak_lines.append(f"{medal} **{s['username']}** — {s['current_streak']} days")
+
+                # Get paired streaks info
+                import aiosqlite
+                from database import DB_PATH
+                paired_lines = []
+                try:
+                    async with aiosqlite.connect(DB_PATH) as db:
+                        db.row_factory = aiosqlite.Row
+                        cursor = await db.execute(
+                            """SELECT user_a, user_b, current_streak
+                               FROM paired_streaks
+                               WHERE status = 'active' AND current_streak > 0
+                               ORDER BY current_streak DESC LIMIT 3"""
+                        )
+                        for row in await cursor.fetchall():
+                            member_a = guild.get_member(row["user_a"])
+                            member_b = guild.get_member(row["user_b"])
+                            name_a = member_a.display_name if member_a else f"User#{row['user_a']}"
+                            name_b = member_b.display_name if member_b else f"User#{row['user_b']}"
+                            paired_lines.append(f"🔗 **{name_a}** & **{name_b}** — {row['current_streak']} days")
+                except Exception:
+                    pass
+
+                embed2 = discord.Embed(
+                    title="🔥 STREAK HALL",
+                    description="━━━━━━━━━━━━━━━━━━━━━",
+                    color=EMBED_COLOR_ACCENT,
+                )
+                embed2.add_field(
+                    name="🏆 Top Daily Streaks",
+                    value="\n".join(streak_lines),
+                    inline=False,
+                )
+                if paired_lines:
+                    embed2.add_field(
+                        name="🔗 Top Paired Streaks",
+                        value="\n".join(paired_lines),
+                        inline=False,
+                    )
+                embeds.append(embed2)
+
+            # ── Embed 3: Social Bonds ─────────────────────────────────────
+            social_parts = []
+            if best_pair:
+                user_a, user_b, score = best_pair
+                member_a = guild.get_member(user_a)
+                member_b = guild.get_member(user_b)
+                name_a = member_a.display_name if member_a else f"User#{user_a}"
+                name_b = member_b.display_name if member_b else f"User#{user_b}"
+                social_parts.append(f"🤝 **Best Friends of the Week:** {name_a} & {name_b} (score: {score:.1f})")
+
+            voice_hours = voice_minutes / 60
+            if voice_hours > 0:
+                social_parts.append(f"🎤 **{voice_hours:.1f} hours** spent together in voice")
+
+            if social_parts:
+                embed3 = discord.Embed(
+                    title="🤝 SOCIAL BONDS",
+                    description="━━━━━━━━━━━━━━━━━━━━━\n\n" + "\n\n".join(social_parts),
+                    color=EMBED_COLOR_PRIMARY,
+                )
+                embeds.append(embed3)
+
+            # ── Embed 4: Faction Standings (conditional) ──────────────────
+            if faction_standings:
+                faction_emojis = {"Inferno": "🔴", "Frost": "🔵", "Venom": "🟢", "Volt": "🟡"}
+                faction_lines = []
+                for i, f in enumerate(faction_standings):
+                    emoji = faction_emojis.get(f["team_name"], "⚔️")
+                    prefix = "👑" if i == 0 else f"#{i+1}"
+                    faction_lines.append(f"{prefix} {emoji} **{f['team_name']}** — {f['total_score']:,.0f} pts")
+
+                embed4 = discord.Embed(
+                    title="⚔️ FACTION STANDINGS",
+                    description="━━━━━━━━━━━━━━━━━━━━━\n\n" + "\n".join(faction_lines),
+                    color=EMBED_COLOR_ACCENT,
+                )
+                embeds.append(embed4)
+
+            # ── Send all embeds ───────────────────────────────────────────
+            for embed in embeds:
+                try:
+                    await channel.send(embed=embed)
+                except discord.HTTPException:
+                    pass
+
+            # Sign-off
             try:
-                await channel.send(embed=embed)
+                await channel.send("*The Circle has spoken. See you next Sunday.* ⚫")
             except discord.HTTPException:
                 pass
 
@@ -116,7 +216,6 @@ class WeeklyRecap(commands.Cog):
         """Wait until the target day and hour."""
         await self.bot.wait_until_ready()
         now = datetime.utcnow()
-        # Find next target day
         days_ahead = WEEKLY_RECAP_DAY - now.weekday()
         if days_ahead < 0 or (days_ahead == 0 and now.hour >= WEEKLY_RECAP_HOUR):
             days_ahead += 7
@@ -135,9 +234,8 @@ class WeeklyRecap(commands.Cog):
         if stats["total_messages"] == 0:
             await ctx.send("⚫ No data to recap yet. The Circle needs more activity.")
             return
-        # Trigger the recap manually
         await self.post_weekly_recap()
-        await ctx.send("⚫ Weekly recap posted.")
+        await ctx.send("⚫ Sunday Ceremony posted.")
 
 
 async def setup(bot: commands.Bot):

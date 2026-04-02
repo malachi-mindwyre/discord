@@ -1,9 +1,12 @@
 """
 The Circle — Voice XP Cog
 Tracks time spent in voice channels and awards points.
+Also tracks voice co-presence for the social graph.
 """
 
 from __future__ import annotations
+
+import logging
 
 import discord
 from discord.ext import commands
@@ -19,7 +22,10 @@ from database import (
     get_or_create_user,
     update_user_score,
     get_user_voice_minutes,
+    update_voice_co_presence,
 )
+
+logger = logging.getLogger("circle.voice_xp")
 
 
 class VoiceXP(commands.Cog):
@@ -27,6 +33,32 @@ class VoiceXP(commands.Cog):
         self.bot = bot
         # Track active voice sessions in memory
         self._active_sessions: set[int] = set()
+
+    async def _end_session_and_track(self, member: discord.Member, voice_channel: discord.VoiceChannel | None):
+        """End a voice session, award points, and update social graph co-presence."""
+        points = await end_voice_session(member.id, VOICE_POINTS_PER_MINUTE)
+        if points and points > 0:
+            await update_user_score(member.id, points)
+
+            # Track voice co-presence with everyone still in the channel
+            if voice_channel:
+                session_minutes = points / VOICE_POINTS_PER_MINUTE if VOICE_POINTS_PER_MINUTE > 0 else 0
+                for other in voice_channel.members:
+                    if other.bot or other.id == member.id:
+                        continue
+                    try:
+                        await update_voice_co_presence(member.id, other.id, session_minutes)
+                    except Exception:
+                        logger.debug("Failed to update voice co-presence for %s <-> %s", member.id, other.id)
+
+            # Notify streaks_v2 about voice activity
+            streaks_cog = self.bot.get_cog("StreaksV2")
+            if streaks_cog:
+                session_minutes = points / VOICE_POINTS_PER_MINUTE if VOICE_POINTS_PER_MINUTE > 0 else 0
+                await streaks_cog.check_voice_streak(member.id, session_minutes)
+
+        self._active_sessions.discard(member.id)
+        return points
 
     @commands.Cog.listener()
     async def on_voice_state_update(
@@ -51,18 +83,13 @@ class VoiceXP(commands.Cog):
         # User left a voice channel
         elif before.channel is not None and after.channel is None:
             if member.id in self._active_sessions:
-                points = await end_voice_session(member.id, VOICE_POINTS_PER_MINUTE)
-                if points and points > 0:
-                    await update_user_score(member.id, points)
-                self._active_sessions.discard(member.id)
+                await self._end_session_and_track(member, before.channel)
 
         # User switched channels
         elif before.channel is not None and after.channel is not None and before.channel != after.channel:
             # End old session
             if member.id in self._active_sessions:
-                points = await end_voice_session(member.id, VOICE_POINTS_PER_MINUTE)
-                if points and points > 0:
-                    await update_user_score(member.id, points)
+                await self._end_session_and_track(member, before.channel)
 
             # Start new session (skip AFK)
             if VOICE_AFK_CHANNEL_EXCLUDED and after.channel == member.guild.afk_channel:

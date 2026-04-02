@@ -51,8 +51,8 @@ STAGE_GRADUATION_D7 = "graduation_d7"
 # Time thresholds (in seconds) from join time
 THRESHOLDS = {
     STAGE_WELCOME:          5,
-    STAGE_NUDGE_5M:         300,        # 5 min
-    STAGE_PROGRESS_1H:      3600,       # 1 hr
+    # STAGE_NUDGE_5M removed — T+5m "Still quiet?" too aggressive for new users
+    STAGE_PROGRESS_1H:      7200,       # 2 hr (was 1hr — gives users more breathing room)
     STAGE_STREAK_ANCHOR_4H: 14400,      # 4 hr
     STAGE_CHECKIN_24H:      86400,      # 24 hr
     STAGE_MOMENTUM_48H:     172800,     # 48 hr
@@ -64,7 +64,7 @@ THRESHOLDS = {
 # Ordered stage list for progression tracking
 STAGE_ORDER = [
     STAGE_WELCOME,
-    STAGE_NUDGE_5M,
+    # STAGE_NUDGE_5M removed — too aggressive
     STAGE_PROGRESS_1H,
     STAGE_STREAK_ANCHOR_4H,
     STAGE_CHECKIN_24H,
@@ -530,20 +530,18 @@ class OnboardingV2(commands.Cog):
             description=(
                 f"**{member.display_name}**, tomorrow is Day 7.\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"📊 **YOUR STATS**\n"
+                f"📊 **HERE'S WHAT YOU'VE BUILT**\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n\n"
                 f"⚡ Total Score: **{total_score:.0f}** pts\n"
                 f"📈 Current Rank: **Tier {current_rank}**\n"
                 f"🎯 Quests Done: **{completed}/4**\n\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"⚠️ **IF YOU LEAVE NOW, YOU LOSE:**\n"
+                f"🎁 **TOMORROW YOU UNLOCK:**\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"💀 Your rank progress\n"
-                f"💀 Your streak multiplier\n"
-                f"💀 The **Survivor** badge (unlocks tomorrow)\n"
-                f"💀 **{ONBOARDING_GRADUATION_COINS} free Circles** 🪙\n"
-                f"💀 Your public graduation moment\n\n"
-                f"*One more day. That's all The Circle asks.*"
+                f"🏅 The **Survivor** badge — permanent\n"
+                f"🪙 **{ONBOARDING_GRADUATION_COINS} Circles** added to your wallet\n"
+                f"📣 A public graduation moment\n\n"
+                f"*One more day. You've earned this.*"
             ),
             color=EMBED_COLOR_ACCENT,
         )

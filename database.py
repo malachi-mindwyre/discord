@@ -36,6 +36,7 @@ async def init_db():
                 is_reply INTEGER DEFAULT 0,
                 has_mention INTEGER DEFAULT 0,
                 points_earned REAL DEFAULT 0.0,
+                parent_message_id INTEGER,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             );
 
@@ -139,6 +140,7 @@ async def init_db():
                 number INTEGER NOT NULL,
                 timestamp TEXT NOT NULL,
                 reaction_count INTEGER DEFAULT 0,
+                message_id INTEGER,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
             );
 
@@ -721,15 +723,15 @@ async def reset_user(user_id: int):
 
 async def log_message(user_id: int, channel_id: int, word_count: int,
                       has_media: bool, is_reply: bool, has_mention: bool,
-                      points_earned: float):
+                      points_earned: float, parent_message_id: int | None = None):
     """Log a scored message."""
     now = datetime.utcnow().isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
             """INSERT INTO messages
-               (user_id, channel_id, timestamp, word_count, has_media, is_reply, has_mention, points_earned)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (user_id, channel_id, now, word_count, int(has_media), int(is_reply), int(has_mention), points_earned),
+               (user_id, channel_id, timestamp, word_count, has_media, is_reply, has_mention, points_earned, parent_message_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, channel_id, now, word_count, int(has_media), int(is_reply), int(has_mention), points_earned, parent_message_id),
         )
         await db.commit()
 
@@ -1319,12 +1321,14 @@ async def get_reply_chain_depth(message_id: int, channel_id: int) -> int:
 
 async def is_first_reply_to_message(parent_message_id: int) -> bool:
     """Check if this is the first reply to a given message.
-    Since we don't track parent_message_id, we approximate:
-    return True 30% of the time for replies (rough heuristic that will be
-    refined when we add parent_message_id tracking)."""
-    # TODO: Add parent_message_id column to messages table for precise tracking
-    import random
-    return random.random() < 0.3
+    Returns True if no other scored message has this parent_message_id."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT COUNT(*) FROM messages WHERE parent_message_id = ?",
+            (parent_message_id,),
+        )
+        row = await cursor.fetchone()
+        return (row[0] if row else 0) == 0
 
 
 async def get_all_users() -> list[dict]:
@@ -1332,6 +1336,88 @@ async def get_all_users() -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cursor = await db.execute("SELECT * FROM users ORDER BY total_score DESC")
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+# ─── UGC Content Pipeline ────────────────────────────────────────────────
+
+async def get_approved_ugc_prompt() -> dict | None:
+    """Get a random approved UGC prompt, preferring least-used ones."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            """SELECT * FROM content_submissions
+               WHERE content_type = 'prompt' AND status = 'approved'
+               ORDER BY times_used ASC, RANDOM()
+               LIMIT 1"""
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+
+async def mark_ugc_prompt_used(sub_id: int):
+    """Increment times_used for a UGC submission."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE content_submissions SET times_used = times_used + 1 WHERE id = ?",
+            (sub_id,),
+        )
+        await db.commit()
+
+
+# ─── Weekly Recap Helpers ────────────────────────────────────────────────
+
+async def get_weekly_voice_minutes() -> float:
+    """Get total voice minutes earned in the last 7 days."""
+    cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT COALESCE(SUM(minutes_earned), 0) FROM voice_sessions WHERE joined_at > ?",
+            (cutoff,),
+        )
+        row = await cursor.fetchone()
+        return row[0] if row else 0.0
+
+
+async def get_weekly_best_friend_pair() -> tuple | None:
+    """Get the pair with the highest friendship score growth this week."""
+    cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            """SELECT user_a, user_b, friendship_score
+               FROM social_graph
+               WHERE last_interaction > ? AND friendship_score > 0
+               ORDER BY friendship_score DESC
+               LIMIT 1"""
+        )
+        row = await cursor.fetchone()
+        if row:
+            return (row["user_a"], row["user_b"], row["friendship_score"])
+        return None
+
+
+async def get_weekly_achievements_count() -> int:
+    """Count badges unlocked in the last 7 days."""
+    cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        cursor = await db.execute(
+            "SELECT COUNT(*) FROM achievements WHERE unlocked_at > ?",
+            (cutoff,),
+        )
+        row = await cursor.fetchone()
+        return row[0] if row else 0
+
+
+async def get_weekly_faction_standings() -> list[dict]:
+    """Get faction scores for the current week."""
+    week_key = datetime.utcnow().strftime("%Y-W%W")
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT team_name, total_score FROM faction_scores WHERE week = ? ORDER BY total_score DESC",
+            (week_key,),
+        )
         return [dict(row) for row in await cursor.fetchall()]
 
 
@@ -1360,6 +1446,25 @@ async def update_social_interaction(user_a: int, user_b: int, interaction_type: 
                     last_interaction = ?,
                     friendship_score = (reply_count * 3) + (mention_count * 2) + (reaction_count * 1) + (voice_overlap_minutes * 0.5)""",
             (a, b, now, now),
+        )
+        await db.commit()
+
+
+async def update_voice_co_presence(user_a: int, user_b: int, minutes: float):
+    """Update voice co-presence minutes in the social graph."""
+    a, b = min(user_a, user_b), max(user_a, user_b)
+    now = datetime.utcnow().isoformat()
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            """INSERT INTO social_graph (user_a, user_b, voice_overlap_minutes, interaction_count, last_interaction)
+                VALUES (?, ?, ?, 1, ?)
+                ON CONFLICT(user_a, user_b) DO UPDATE SET
+                    voice_overlap_minutes = voice_overlap_minutes + ?,
+                    interaction_count = interaction_count + 1,
+                    last_interaction = ?,
+                    friendship_score = (reply_count * 3) + (mention_count * 2) + (reaction_count * 1) + (voice_overlap_minutes * 0.5)""",
+            (a, b, minutes, now, minutes, now),
         )
         await db.commit()
 

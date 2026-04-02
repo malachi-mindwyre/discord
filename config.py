@@ -54,12 +54,13 @@ TIME_MULTIPLIERS = {
 WEEKEND_BONUS_MULT = 1.15           # +15% on Saturday/Sunday
 
 # Layer 4: Engagement (Diminishing Returns + Diversity + Combo)
-DIMINISHING_RETURNS_TIERS = [       # (max_messages, multiplier)
-    (20, 1.0),                       # First 20 msgs = full value
-    (50, 0.5),                       # 21-50 = half value
-    (100, 0.25),                     # 51-100 = quarter value
+DIMINISHING_RETURNS_TIERS = [       # (max_messages, multiplier) — smoother curve
+    (15, 1.0),                       # First 15 msgs = full value
+    (30, 0.75),                      # 16-30 = 75% value
+    (50, 0.5),                       # 31-50 = half value
+    (75, 0.25),                      # 51-75 = quarter value
 ]
-DIMINISHING_RETURNS_FLOOR = 0.10    # 101+ messages = 10% value
+DIMINISHING_RETURNS_FLOOR = 0.10    # 76+ messages = 10% value
 CHANNEL_DIVERSITY_BONUS_PER = 0.08  # +8% per extra channel
 CHANNEL_DIVERSITY_MAX_CHANNELS = 6  # Max channels counted for bonus
 COMBO_BONUS_PER_STACK = 0.1         # +10% per combo stack
@@ -123,7 +124,7 @@ VOICE_SESSION_CAP_MINUTES = 480    # Max 8 hours per session
 VOICE_AFK_CHANNEL_EXCLUDED = True  # Don't earn in AFK channel
 
 # ─── Daily Prompts ─────────────────────────────────────────────────────────
-DAILY_PROMPT_HOUR = 10              # Hour (UTC) to post daily prompt
+DAILY_PROMPT_HOUR = 18              # Hour (UTC) to post daily prompt (18 UTC = 11am PT / 2pm ET)
 DAILY_PROMPT_CHANNEL = "general"    # Channel to post prompts in
 
 # ─── Weekly Recap ──────────────────────────────────────────────────────────
@@ -332,6 +333,19 @@ CONFESSION_COOLDOWN_HOURS = 6          # Hours between confessions per user
 CONFESSION_CHANNEL = "confessions"
 CONFESSION_DISCUSSION_CHANNEL = "confession-discussion"
 CONFESSION_AUTO_REACTIONS = ["🔥", "😂", "😱"]
+CONFESSION_MAX_LENGTH = 1000           # Max characters per confession
+CONFESSION_REPORT_THRESHOLD = 3        # Reports needed to auto-delete a confession
+CONFESSION_BLOCKED_PATTERNS = [
+    # Doxxing patterns (phone numbers, SSNs, addresses)
+    r'\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b',     # SSN-like
+    r'\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b',      # Phone numbers
+    r'\b\d{1,5}\s+\w+\s+(st|street|ave|avenue|blvd|boulevard|dr|drive|rd|road|ln|lane|ct|court)\b',  # Street addresses
+    # Threats
+    r'\b(kill|murder|shoot|bomb|stab)\s+(you|them|him|her|everyone)\b',
+    r'\bi\s+will\s+(kill|murder|shoot|bomb|stab)\b',
+    # Self-harm
+    r'\b(kms|kill\s+myself|end\s+my\s+life|suicide)\b',
+]
 
 # ─── Starboard ────────────────────────────────────────────────────────────
 STARBOARD_CHANNEL = "hall-of-fame"

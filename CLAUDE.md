@@ -120,7 +120,7 @@ final_score = BASE * SOCIAL * TEMPORAL * ENGAGEMENT * META
 - Weekend bonus: +15%
 
 ### Layer 4: ENGAGEMENT (Diminishing Returns + Diversity + Combo)
-- Messages 1-20/day: 1.0x | 21-50: 0.5x | 51-100: 0.25x | 101+: 0.10x
+- Messages 1-15/day: 1.0x | 16-30: 0.75x | 31-50: 0.5x | 51-75: 0.25x | 76+: 0.10x
 - Channel diversity: +8% per extra channel (max +40% at 6 channels)
 - Combo: consecutive social msgs within 10 min = +10% per stack (max +50%)
 
@@ -217,16 +217,16 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 |---|---|---|
 | Streaks | `cogs/streaks.py` | Original daily streak tracking (legacy, coexists with v2) |
 | Achievements | `cogs/achievements.py` | 30+ one-time badge unlocks |
-| Scoring Handler | `cogs/scoring_handler.py` | **6-layer scoring engine**, anti-spam, rank-ups, critical hits, bonus drops, 2x XP window integration, active boost integration, season XP, variable rewards delegation |
+| Scoring Handler | `cogs/scoring_handler.py` | **6-layer scoring engine**, anti-spam, rank-ups, critical hits, bonus drops, 2x XP window integration, active boost integration, season XP, variable rewards delegation, **first-message instant feedback**, parent_message_id tracking |
 | Leaderboard | `cogs/leaderboard.py` | Auto-updating hourly embed + !rank, !top, !stats |
 | Media Feed | `cogs/media_feed.py` | Scrapes all channels for media -> mirrors to #media-feed |
 | Welcome | `cogs/welcome.py` | Rich embed on member join |
 | Invites | `cogs/invites.py` | Tracks who invited who, validates after 24h + 5 msgs |
 | Comeback | `cogs/comeback.py` | Graduated decay (legacy decay logic) |
 | Reactions | `cogs/reactions.py` | Points for receiving reactions |
-| Voice XP | `cogs/voice_xp.py` | Points for time in voice channels |
-| Daily Prompts | `cogs/daily_prompts.py` | Auto-posts discussion question daily at 10am UTC |
-| Weekly Recap | `cogs/weekly_recap.py` | Sunday highlights embed with stats |
+| Voice XP | `cogs/voice_xp.py` | Points for time in voice channels + **voice co-presence** feeds social graph friendship scores |
+| Daily Prompts | `cogs/daily_prompts.py` | Auto-posts discussion question daily at 6pm UTC (UGC-first, then config fallback) |
+| Weekly Recap | `cogs/weekly_recap.py` | **Sunday Ceremony**: multi-embed weekly recap (stats + streaks + social bonds + faction standings) |
 | Info | `cogs/info.py` | Posts guide embeds to #info via !postinfo |
 | Setup | `setup_server.py` | Creates all channels, categories, 100 rank roles via !setup |
 
@@ -235,7 +235,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 |---|---|---|
 | Onboarding | `cogs/onboarding.py` | Basic DM on join + 24h check-in |
 | Introductions | `cogs/introductions.py` | First intro = 50 pts + badge |
-| Confessions | `cogs/confessions.py` | Anonymous posting, 6h cooldown, discussion channel |
+| Confessions | `cogs/confessions.py` | Anonymous posting, 6h cooldown, discussion channel, **content filtering** (regex blocklist, 1000 char max), `!report` command (3 reports = auto-delete) |
 | Starboard | `cogs/starboard.py` | Hall of Fame, dynamic reaction thresholds |
 | Invite Reminders | `cogs/invite_reminders.py` | 2-3x/week rotating templates + monthly race |
 | Growth Nudges | `cogs/growth_nudges.py` | Rank teasers at 80% + stagnation nudges at 14 days |
@@ -254,7 +254,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 ### Phase 3: Ultimate Engagement Engine (15 cogs)
 | Cog | File | Purpose |
 |---|---|---|
-| Onboarding v2 | `cogs/onboarding_v2.py` | **7-day staged pipeline**: T+5s quest DM (4 quests with endowed progress — joining counts as #1), T+5min nudge, T+1hr progress, T+4hr streak anchor, T+24h check-in, T+48h momentum, T+72h milestone tease, Day 6 report card, Day 7 graduation ceremony + Survivor badge + 100 Circles. **Fallback:** posts in #general if DMs disabled. |
+| Onboarding v2 | `cogs/onboarding_v2.py` | **7-day staged pipeline**: T+5s quest DM (4 quests with endowed progress — joining counts as #1), T+2hr progress, T+4hr streak anchor, T+24h check-in, T+48h momentum, T+72h milestone tease, Day 6 report card (positive framing), Day 7 graduation ceremony + Survivor badge + 100 Circles. **Fallback:** posts in #general if DMs disabled. T+5min nudge removed (too aggressive). |
 | Streaks v2 | `cogs/streaks_v2.py` | **5 streak types** (daily/weekly/social/voice/creative), freeze tokens, grace periods, paired streaks, division leaderboard |
 | Re-engagement | `cogs/reengagement.py` | **8-tier unified pipeline**: Day 1 server callout, Day 2 loss aversion DM, Day 3 social proof, Day 5 competitive loss, Day 7 urgency, Day 14 active loss, Day 30 nostalgia, Day 60 closure (then opt-out) |
 | Loss Aversion | `cogs/loss_aversion.py` | Graduated decay (0.5%-5%/day by inactivity length), **rank demotion** (3-day grace), streak-at-risk notifications (10 PM UTC, streaks ≥7 only, 1 DM/day), competitive displacement alerts (50+ members only), faction relegation (80+ members only) |
@@ -269,7 +269,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Engagement Ladder | `cogs/engagement_ladder.py` | Tracks user tiers: lurker -> newcomer -> casual -> regular -> power_user -> evangelist. Weekly recalculation, DMs on tier transitions, `!ladder` command |
 | Health Check | `cogs/healthcheck.py` | Automated self-test: 23 checks (DB, tables, cogs, channels, categories, background tasks, scoring engine, config, data health, permissions). Runs every 6h + `!healthcheck` command |
 | Oracle | `cogs/oracle.py` | Evening prediction ritual — Keeper's Oracle posts daily at 9 PM UTC with cryptic predictions. 200+ templates, 7-day no-repeat. `!oracle` command |
-| Metrics | `cogs/metrics.py` | Retention analytics dashboard — DAU/MAU, D1/D7/D30 cohort retention, churn rate. Daily snapshots to `metrics_daily` table. `!metrics` admin command |
+| Metrics | `cogs/metrics.py` | Retention analytics dashboard — DAU/MAU, D1/D7/D30 cohort retention, churn rate, **onboarding funnel tracking** (joined→welcomed→messaged→graduated). Daily snapshots to `metrics_daily` table. `!metrics` admin command |
 
 ---
 
@@ -298,7 +298,8 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!pairstreak @user` | streaks_v2 | Start a paired streak |
 | `!acceptpair @user` | streaks_v2 | Accept a paired streak |
 | `!circle create/invite/leave/info/leaderboard` | circles | Friend group management |
-| `!confess <text>` | confessions | Anonymous confession |
+| `!confess <text>` | confessions | Anonymous confession (content-filtered, max 1000 chars) |
+| `!report <number>` | confessions | Report a confession (3 reports = auto-delete) |
 | `!submit prompt/hottake/trivia <text>` | content_engine | Submit user-generated content (20 Circles) |
 | `!season` | season_pass | Current season info + your tier |
 | `!season buy` | season_pass | Purchase premium pass (5000 Circles) |
@@ -370,7 +371,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 ## ANTI-CHURN SYSTEMS
 
 ### Onboarding (7-Day Pipeline)
-T+5s -> T+5min -> T+1hr -> T+4hr -> T+24h -> T+48h -> T+72h -> Day 6 -> Day 7 graduation
+T+5s -> T+2hr -> T+4hr -> T+24h -> T+48h -> T+72h -> Day 6 -> Day 7 graduation
 
 ### Re-engagement (8-Tier, Day 1-60)
 Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM -> Day 14 DM -> Day 30 DM -> Day 60 final DM
@@ -424,7 +425,7 @@ Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM -> Day 14 D
 
 **Phase 3:** jackpot, daily_spins, bonus_drops, demotion_watch, streak_freezes, displacement_log, onboarding_state, reengagement_state, streaks_v2, paired_streaks, social_graph, circles, circle_members, content_submissions, debate_scores, trending_topics, faction_wars, faction_territories, faction_treasury, faction_loyalty, seasons, season_progress, season_challenges, season_challenge_completions, season_rewards, prestige, user_engagement_tier, legacy_events, mod_reputation, combo_tracker, channel_diversity, kudos, rivals, time_capsules, active_boosts
 
-**Audit Fix:** metrics_daily, oracle_log, connection_quests, quick_fire_log, quick_fire_replies
+**Audit Fix:** metrics_daily, oracle_log, connection_quests, quick_fire_log, quick_fire_replies, confession_reports
 
 ---
 
@@ -528,12 +529,12 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 1. **Legacy cog overlap:** `streaks.py` + `streaks_v2.py` coexist (v2 commands renamed to `!allstreaks`/`!streakboard`). Eventually remove old `streaks.py` and rename v2 commands back.
 2. ~~**Legacy DM overlap:**~~ **FIXED** — `smart_dm.py` disabled, `reengagement.py` is the sole pipeline. Onboarding/re-engagement pipelines deduplicated.
 3. **Factions warfare 2.0:** The plan includes territory control, treasury, loyalty, traitor mechanics. The current `factions.py` is basic. The config constants exist in `config.py` (FACTION_WAR_CHALLENGE_CYCLE, FACTION_TERRITORY_BONUS, etc.) but the cog hasn't been rewritten yet.
-4. **Enhanced weekly recap:** Plan calls for a full "Sunday Ceremony" with faction standings, territory map, Oracle review. Not yet implemented.
+4. ~~**Enhanced weekly recap:**~~ **BUILT** — `weekly_recap.py` now posts a multi-embed "Sunday Ceremony" with stats overview, streak hall (daily + paired), social bonds (best friend pair + voice hours), and faction standings (conditional).
 5. **Enhanced profiles:** Plan calls for display titles, legacy timeline, activity crown. Config exists (DISPLAY_TITLES, RANK_PERKS) but not wired into profiles.py.
 6. ~~**Oracle system:**~~ **BUILT** — `cogs/oracle.py` posts daily at 9 PM UTC, 200+ templates, 7-day no-repeat, `!oracle` command.
 7. **Time capsules:** Quarterly `!timecapsule <message>` with reveal 3 months later. Table exists, cog not built.
 8. **Hidden moderation layer:** Invisible reputation score (config exists: MOD_REPUTATION_*). Not yet implemented.
-9. **First-reply detection:** Currently uses a 30% random heuristic. Needs parent_message_id column in messages table for precise tracking.
+9. ~~**First-reply detection:**~~ **FIXED** — `parent_message_id` column added to messages table. `is_first_reply_to_message()` now does a real DB lookup instead of the 30% random heuristic. `log_message()` stores parent_message_id for replies.
 10. ~~**XP boost not fully wired:**~~ **FIXED** — scoring_handler now checks `active_boosts` table AND `VariableRewards.is_double_xp` for surprise 2x windows. Season XP also wired (50% of message score). Variable rewards delegation (mystery drops) connected.
 
 ---

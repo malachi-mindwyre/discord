@@ -1,6 +1,7 @@
 """
 The Circle — Metrics Cog
-Retention analytics: DAU/MAU, D1/D7/D30 cohort retention, churn rate.
+Retention analytics: DAU/MAU, D1/D7/D30 cohort retention, churn rate,
+onboarding funnel tracking.
 Runs daily at midnight UTC, stores snapshots in metrics_daily table.
 """
 
@@ -36,7 +37,10 @@ async def _ensure_table():
                 d1_retention REAL DEFAULT 0.0,
                 d7_retention REAL DEFAULT 0.0,
                 d30_retention REAL DEFAULT 0.0,
-                churn_rate REAL DEFAULT 0.0
+                churn_rate REAL DEFAULT 0.0,
+                onboarding_total INTEGER DEFAULT 0,
+                onboarding_messaged INTEGER DEFAULT 0,
+                onboarding_graduated INTEGER DEFAULT 0
             )
         """)
         await db.commit()
@@ -141,6 +145,40 @@ async def _compute_churn_rate() -> float:
         return churned / last_week_active
 
 
+async def _compute_onboarding_funnel() -> dict:
+    """Compute onboarding funnel metrics from the onboarding_state table."""
+    result = {"total": 0, "welcomed": 0, "messaged": 0, "quest_done": 0, "graduated": 0}
+    async with aiosqlite.connect(DB_PATH) as db:
+        try:
+            cursor = await db.execute("SELECT COUNT(*) FROM onboarding_state")
+            result["total"] = (await cursor.fetchone())[0]
+
+            cursor = await db.execute(
+                "SELECT COUNT(*) FROM onboarding_state WHERE stage != 'joined'"
+            )
+            result["welcomed"] = (await cursor.fetchone())[0]
+
+            cursor = await db.execute(
+                "SELECT COUNT(*) FROM onboarding_state WHERE first_message_at IS NOT NULL"
+            )
+            result["messaged"] = (await cursor.fetchone())[0]
+
+            cursor = await db.execute(
+                """SELECT COUNT(*) FROM onboarding_state
+                   WHERE (intro_posted + CASE WHEN first_reply_at IS NOT NULL THEN 1 ELSE 0 END + daily_claimed) >= 2"""
+            )
+            result["quest_done"] = (await cursor.fetchone())[0]
+
+            cursor = await db.execute(
+                "SELECT COUNT(*) FROM onboarding_state WHERE stage = 'graduated'"
+            )
+            result["graduated"] = (await cursor.fetchone())[0]
+        except aiosqlite.OperationalError:
+            # Table might not exist yet
+            pass
+    return result
+
+
 # ─── The Cog ────────────────────────────────────────────────────────────────
 
 class Metrics(commands.Cog):
@@ -175,13 +213,15 @@ class Metrics(commands.Cog):
             d7 = await _compute_retention(7)
             d30 = await _compute_retention(30)
             churn = await _compute_churn_rate()
+            funnel = await _compute_onboarding_funnel()
 
             async with aiosqlite.connect(DB_PATH) as db:
                 await db.execute(
                     """INSERT INTO metrics_daily
                        (date, dau, wau, mau, dau_mau_ratio, messages_total,
-                        new_users, d1_retention, d7_retention, d30_retention, churn_rate)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        new_users, d1_retention, d7_retention, d30_retention, churn_rate,
+                        onboarding_total, onboarding_messaged, onboarding_graduated)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                        ON CONFLICT(date) DO UPDATE SET
                            dau = excluded.dau, wau = excluded.wau, mau = excluded.mau,
                            dau_mau_ratio = excluded.dau_mau_ratio,
@@ -190,16 +230,21 @@ class Metrics(commands.Cog):
                            d1_retention = excluded.d1_retention,
                            d7_retention = excluded.d7_retention,
                            d30_retention = excluded.d30_retention,
-                           churn_rate = excluded.churn_rate
+                           churn_rate = excluded.churn_rate,
+                           onboarding_total = excluded.onboarding_total,
+                           onboarding_messaged = excluded.onboarding_messaged,
+                           onboarding_graduated = excluded.onboarding_graduated
                     """,
                     (today, dau, wau, mau, dau_mau, messages, new_users,
-                     d1, d7, d30, churn),
+                     d1, d7, d30, churn,
+                     funnel["total"], funnel["messaged"], funnel["graduated"]),
                 )
                 await db.commit()
 
             logger.info(
-                "Metrics snapshot: DAU=%d WAU=%d MAU=%d DAU/MAU=%.2f D1=%.0f%% D7=%.0f%% D30=%.0f%%",
+                "Metrics snapshot: DAU=%d WAU=%d MAU=%d DAU/MAU=%.2f D1=%.0f%% D7=%.0f%% D30=%.0f%% Funnel=%d/%d/%d",
                 dau, wau, mau, dau_mau, d1 * 100, d7 * 100, d30 * 100,
+                funnel["total"], funnel["messaged"], funnel["graduated"],
             )
         except Exception:
             logger.exception("Failed to compute daily metrics")
@@ -260,6 +305,16 @@ class Metrics(commands.Cog):
         max_dau = max(dau_history) if dau_history else 1
         bars = "".join("▓" if d > max_dau * 0.5 else "░" for d in dau_history)
 
+        # Onboarding funnel (live)
+        funnel = await _compute_onboarding_funnel()
+        funnel_text = (
+            f"📥 {funnel['total']} joined → "
+            f"👋 {funnel['welcomed']} welcomed → "
+            f"💬 {funnel['messaged']} messaged → "
+            f"🎯 {funnel['quest_done']} quests → "
+            f"🏅 {funnel['graduated']} graduated"
+        )
+
         embed = discord.Embed(
             title="📊 THE CIRCLE — RETENTION DASHBOARD",
             description=(
@@ -283,7 +338,11 @@ class Metrics(commands.Cog):
                 f"📉 **Churn:** {churn:.0f}%{trend(-churn, -(prev['churn_rate'] * 100) if prev else None)}\n"
                 f"🆕 **New users:** {latest['new_users']}\n"
                 f"💬 **Messages:** {latest['messages_total']}\n\n"
-                f"**7-day DAU:** `{bars}` ({' → '.join(str(d) for d in dau_history)})"
+                f"**7-day DAU:** `{bars}` ({' → '.join(str(d) for d in dau_history)})\n\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"🎓 **ONBOARDING FUNNEL**\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"{funnel_text}"
             ),
             color=EMBED_COLOR_ACCENT,
         )
