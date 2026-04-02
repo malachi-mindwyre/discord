@@ -34,15 +34,16 @@ SEASON_EARLY_BIRD_HOURS = 48
 SEASON_EARLY_BIRD_MULT = 2.0
 OFF_SEASON_DAYS = 7
 
-# XP required per tier (flattened exponential curve).
-# Base 1.045 gives ~20k total XP for tier 50, achievable in 8 weeks
+# XP required per tier (exponential curve).
+# Base 150 * 1.065^t gives ~40k total XP for tier 50, achievable in 8 weeks
 # with daily messages (~75/day) + challenges (3 weekly @ 1500 + 1 daily @ 250).
+# Early tiers take ~60-80 messages each to prevent instant tier-ups.
 _TIER_XP: list[int] = []
 for _t in range(SEASON_PASS_TIERS):
     if _t == 0:
         _TIER_XP.append(0)
     else:
-        _TIER_XP.append(int(80 * (1.045 ** _t)))
+        _TIER_XP.append(int(150 * (1.065 ** _t)))
 
 TIER_CUMULATIVE_XP: list[int] = []
 _running = 0
@@ -502,19 +503,20 @@ class SeasonPass(commands.Cog):
                 )
                 await db.commit()
 
-        # Notify in rank-ups channel
-        for guild in self.bot.guilds:
-            ch = discord.utils.get(guild.text_channels, name="rank-ups")
-            if ch:
-                label = f"Season Tier {tier}"
-                try:
-                    await ch.send(
-                        f"⚡ <@{user_id}> reached **{label}**! "
-                        + (f"{'👑 Premium rewards claimed!' if is_premium and tier in SEASON_PREMIUM_REWARDS else ''}"
-                           if tier in SEASON_FREE_REWARDS else "The grind continues...")
-                    )
-                except discord.Forbidden:
-                    pass
+        # Notify in rank-ups channel — only at milestone tiers (every 10th) to reduce spam
+        if tier % 10 == 0 or tier == SEASON_PASS_TIERS:
+            for guild in self.bot.guilds:
+                ch = discord.utils.get(guild.text_channels, name="rank-ups")
+                if ch:
+                    label = f"Season Tier {tier}"
+                    try:
+                        await ch.send(
+                            f"⚡ <@{user_id}> reached **{label}**! "
+                            + (f"{'👑 Premium rewards claimed!' if is_premium and tier in SEASON_PREMIUM_REWARDS else ''}"
+                               if tier in SEASON_FREE_REWARDS else "The grind continues...")
+                        )
+                    except discord.Forbidden:
+                        pass
 
     # ─── Challenge Generation ─────────────────────────────────────────────────
 
