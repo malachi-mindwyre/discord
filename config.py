@@ -241,31 +241,39 @@ KEEPER_HELP = (
     "📊 `!top` — The top 10 chosen ones\n"
     "👤 `!profile` — Your full profile\n"
     "👀 `!stats @user` — Peer into another's journey\n"
-    "📨 `!invites` — The recruiters' ledger\n\n"
-    "**🔥 Engagement**\n"
+    "📨 `!invites` — The recruiters' ledger\n"
+    "📈 `!ladder` — Your engagement tier\n\n"
+    "**🔥 Streaks & Daily**\n"
     "🔥 `!streak` — Check your daily streak\n"
     "🔥 `!allstreaks` — All 5 streak types\n"
-    "🏅 `!badges` — See your achievements\n"
+    "🔥 `!streakboard` — Streak leaderboard\n"
+    "❄️ `!buyfreeze` — Buy streak freeze token\n"
+    "🔗 `!pairstreak @user` — Paired streak\n"
     "📅 `!daily` — Claim daily login reward\n"
     "🎡 `!spin` — Daily wheel spin\n"
-    "📊 `!goal` — Weekly community goal\n"
-    "🔮 `!oracle` — Today's Oracle prediction\n"
-    "📈 `!ladder` — Your engagement tier\n"
-    "⚡ `!season` — Season pass progress\n"
-    "🎯 `!challenges` — Active season challenges\n\n"
+    "🏅 `!badges` — See your achievements\n"
+    "🎤 `!voicetime` — Voice channel time\n"
+    "🔮 `!oracle` — Today's Oracle prediction\n\n"
     "**🪙 Economy**\n"
     "💰 `!balance` — Check your Circles\n"
-    "🏪 `!shop` — Browse the shop (+ limited-time items!)\n"
-    "🛒 `!buy <item>` — Purchase an item\n"
-    "❄️ `!buyfreeze` — Buy streak freeze token\n\n"
-    "**⚔️ Social**\n"
-    "⚔️ `!faction` — Faction standings\n"
+    "🏪 `!shop` — Browse the shop (+ daily rotating items!)\n"
+    "🛒 `!buy <item>` — Purchase an item\n\n"
+    "**👥 Social & Factions**\n"
     "👥 `!friends` — Your top 5 connections\n"
     "🔗 `!bestfriend` — Your #1 bond\n"
     "⚔️ `!rival @user` — Declare a rivalry\n"
-    "🔗 `!pairstreak @user` — Paired streak\n"
+    "⚔️ `!faction` — Faction standings\n"
     "🔮 `!confess <text>` — Anonymous confession\n"
-    "✏️ `!setbio <text>` — Set profile bio\n\n"
+    "🚩 `!report <number>` — Flag a confession\n"
+    "📝 `!submit prompt/hottake/trivia` — Submit content\n\n"
+    "**⚡ Season & Prestige**\n"
+    "⚡ `!season` — Season pass progress\n"
+    "🎯 `!challenges` — Active challenges\n"
+    "🔄 `!prestige` — Prestige info (Veteran+)\n"
+    "📊 `!goal` — Weekly community goal\n\n"
+    "**✏️ Profile**\n"
+    "✏️ `!setbio <text>` — Set profile bio\n"
+    "🎨 `!setcolor #hex` — Set profile color\n\n"
     "The Circle rewards those who speak, share, reply, and tag.\n"
     "Solo whispers earn little. Connections earn everything."
 )
@@ -407,13 +415,13 @@ ENGAGEMENT_MAX_PER_DAY = 2            # Max trigger messages per channel per day
 ENGAGEMENT_TIP_CHANCE = 0.05          # 5% chance to show tip after message
 
 ENGAGEMENT_TIPS = [
-    "💡 Did you know? Replying to someone earns **3x** more points than posting alone.",
-    "💡 Pro tip: Tagging someone in a reply = **12x** your base score.",
+    "💡 Did you know? Replying to someone earns **2.5x** more points than posting alone.",
+    "💡 Pro tip: Reply + tag someone = **6x** your base score. The ultimate combo.",
     "💡 Voice channels earn you points too. Just hanging out = free XP.",
     "💡 Reacting to someone's post gives THEM points. Spread the love.",
     "💡 Your daily streak multiplies ALL your points. Don't break it!",
     "💡 Media posts (images, videos, links) earn **+5 bonus** points.",
-    "💡 The longer your message, the more points. +0.2 per word adds up fast.",
+    "💡 The longer your message, the more points. +0.15 per word adds up fast.",
 ]
 
 ENGAGEMENT_SOCIAL_PROOF = [

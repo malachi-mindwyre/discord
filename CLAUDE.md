@@ -417,7 +417,7 @@ Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM -> Day 14 D
 
 ---
 
-## DATABASE TABLES (~55 total)
+## DATABASE TABLES (~56 total)
 
 **Phase 1:** users, messages, daily_scores, rank_history, invites, streaks, achievements, voice_sessions, reactions_received
 
@@ -432,9 +432,9 @@ Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM -> Day 14 D
 ## FILE STRUCTURE
 ```
 discord/
-├── bot.py              -- Main entry, loads 45 cogs
+├── bot.py              -- Main entry, loads 46 extensions (45 cogs + setup_server)
 ├── config.py           -- All constants (~800 lines), scoring weights, engagement params
-├── database.py         -- SQLite schema (~50 tables) + async CRUD helpers
+├── database.py         -- SQLite schema (~56 tables) + async CRUD helpers + migrations
 ├── scoring.py          -- 6-layer scoring engine (pure logic, no Discord deps)
 ├── ranks.py            -- 100 rank definitions + helpers
 ├── setup_server.py     -- !setup cog (creates channels, roles)
