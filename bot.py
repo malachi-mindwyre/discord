@@ -92,6 +92,7 @@ async def on_ready():
     print(f"⚫ Keeper has awakened. Logged in as {bot.user} (ID: {bot.user.id})")
     print(f"⚫ Watching over {len(bot.guilds)} guild(s)")
 
+
     # Set Keeper's status
     activity = discord.Activity(
         type=discord.ActivityType.watching,
