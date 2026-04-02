@@ -1,7 +1,7 @@
 # The Circle — Discord Bot Project
 
 ## What This Is
-A custom Discord bot called **"Keeper"** for a social server called **"The Circle"**. Built in Python (discord.py) with SQLite, deployed on a Raspberry Pi 5. Keeper is a scientifically-designed engagement machine with a 6-layer scoring engine, 100-tier rank progression, 49 feature cogs, variable reward psychology, social graph engineering, seasonal battle passes, and multi-dimensional anti-churn systems. ~19,000 lines of code.
+A custom Discord bot called **"Keeper"** for a social server called **"The Circle"**. Built in Python (discord.py) with SQLite, deployed on a Raspberry Pi 5. Keeper is a scientifically-designed engagement machine with a 6-layer scoring engine, 100-tier rank progression, 49 feature cogs (46 active), variable reward psychology, social graph engineering, seasonal battle passes, and multi-dimensional anti-churn systems. ~20,000 lines of code.
 
 **Target audience:** Mixed 18-35 demographic. Dark luxury branding. Gamified social community.
 
@@ -33,7 +33,7 @@ A custom Discord bot called **"Keeper"** for a social server called **"The Circl
 - **Database:** SQLite via aiosqlite (file: `circle.db`)
 - **Hosting:** Raspberry Pi 5
 - **Bot Token:** stored in `.env` (not committed)
-- **Total Cogs:** 49 (48 active — streaks.py disabled, replaced by streaks_v2)
+- **Total Cogs:** 49 defined, 46 active. Disabled: `streaks.py` (→ streaks_v2), `welcome.py` (→ onboarding_v2), `onboarding.py` (→ onboarding_v2), `smart_dm.py` (→ reengagement)
 - **Total DB Tables:** ~50
 
 ## Raspberry Pi Access
@@ -192,7 +192,7 @@ final_score = BASE * SOCIAL * TEMPORAL * ENGAGEMENT * META
 | 81-90 | Icon | Hot Pink | "Are you okay? Genuinely." | Personal text channel, custom Keeper greeting |
 | 91-100 | Immortal | White | "This IS your grass." | Permanent Hall of Fame, set daily prompt 1x/month |
 
-Score thresholds are exponential (RuneScape-style): Rookie I = 0, Immortal X ~ 2,000,000.
+Score thresholds: linear 50 pts/rank for early tiers, then exponential (RuneScape-style). Rookie I = 0, Rookie II = 50, Regular I = 500, Certified I = 1,062, Immortal X ~ 2,000,000. Minimum gap of 50 pts per rank prevents instant multi-rank jumps.
 
 ---
 
@@ -201,14 +201,14 @@ Score thresholds are exponential (RuneScape-style): Rookie I = 0, Immortal X ~ 2
 📋 WELCOME & INFO -- #welcome (RO), #info (RO), #rules (RO), #announcements (RO)
 💬 SOCIAL -- #general, #memes, #dating
 🏋️ SERIOUS -- #politics, #work, #fitness
-📊 MEDIA & STATS -- #media-feed (RO), #leaderboard (RO), #rank-ups (RO)
+📊 MEDIA & STATS -- #media-feed (RO), #leaderboard (RO), #rank-ups (RO), #achievements (RO)
 🎭 ENGAGEMENT -- #introductions, #confessions (RO), #confession-discussion, #hall-of-fame (RO)
 ⚔️ FACTIONS -- #faction-war (RO), #team-inferno, #team-frost, #team-venom, #team-volt
 🤖 BOT -- #bot-commands
 🌙 EXCLUSIVE -- #vip-lounge (Respected+), #after-hours (Veteran+, NO scoring)
 ```
 
-Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderboard, rank-ups, bot-commands, confessions, hall-of-fame, faction-war, after-hours.
+Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderboard, rank-ups, achievements, bot-commands, confessions, hall-of-fame, faction-war, after-hours.
 
 ---
 
@@ -218,15 +218,15 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Cog | File | Purpose |
 |---|---|---|
 | ~~Streaks~~ | `cogs/streaks.py` | **DISABLED** — Superseded by `streaks_v2.py`. Commands renamed: `!streak` → v2, `!streaks` → v2. |
-| Achievements | `cogs/achievements.py` | 30+ one-time badge unlocks |
-| Scoring Handler | `cogs/scoring_handler.py` | **6-layer scoring engine**, anti-spam, rank-ups, critical hits, bonus drops, 2x XP window integration, active boost integration, season XP, variable rewards delegation, **first-message instant feedback**, parent_message_id tracking |
-| Leaderboard | `cogs/leaderboard.py` | Auto-updating hourly embed + !rank, !top, !stats |
-| Media Feed | `cogs/media_feed.py` | Scrapes all channels for media -> mirrors to #media-feed |
-| Welcome | `cogs/welcome.py` | Rich embed on member join |
+| Achievements | `cogs/achievements.py` | 30+ one-time badge unlocks. Announcements post to **#achievements** channel (not inline). |
+| Scoring Handler | `cogs/scoring_handler.py` | **6-layer scoring engine**, anti-spam, rank-ups (**#rank-ups only, group boundaries only**), critical hits, bonus drops, 2x XP window integration, active boost integration, season XP, variable rewards delegation, **first-message instant feedback**, parent_message_id tracking, **message ID dedup**, **POST_SCORE_MULT_CAP (10x)**, **daily cap re-enforcement after multipliers** |
+| Leaderboard | `cogs/leaderboard.py` | Auto-updating hourly embed + !rank, !top, !stats. **Edits existing embed on restart** (searches channel history, no duplicate posts). |
+| Media Feed | `cogs/media_feed.py` | Scrapes all channels for media -> mirrors to #media-feed. **Message ID dedup** prevents double posts. |
+| ~~Welcome~~ | `cogs/welcome.py` | **DISABLED** — Superseded by `onboarding_v2.py` which handles #welcome embed + DM + role assignment. |
 | Invites | `cogs/invites.py` | Tracks who invited who, validates after 24h + 5 msgs |
 | Comeback | `cogs/comeback.py` | Graduated decay (legacy decay logic) |
 | Reactions | `cogs/reactions.py` | Points for receiving reactions |
-| Voice XP | `cogs/voice_xp.py` | Points for time in voice channels + **voice co-presence** feeds social graph friendship scores |
+| Voice XP | `cogs/voice_xp.py` | Points for time in voice channels + **voice co-presence** feeds social graph friendship scores. **AFK detection:** requires 2+ non-bot users, 50% penalty if muted+deafened >10 min. |
 | Daily Prompts | `cogs/daily_prompts.py` | Auto-posts discussion question daily at 6pm UTC (UGC-first, then config fallback) |
 | Weekly Recap | `cogs/weekly_recap.py` | **Sunday Ceremony**: multi-embed weekly recap (stats + streaks + social bonds + faction standings) |
 | Info | `cogs/info.py` | Posts guide embeds to #info via !postinfo |
@@ -235,19 +235,19 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 ### Phase 2: Engagement (17 cogs)
 | Cog | File | Purpose |
 |---|---|---|
-| Onboarding | `cogs/onboarding.py` | Basic DM on join + 24h check-in |
-| Introductions | `cogs/introductions.py` | First intro = 50 pts + badge |
+| ~~Onboarding~~ | `cogs/onboarding.py` | **DISABLED** — Superseded by `onboarding_v2.py`. Was causing duplicate DMs on join. |
+| Introductions | `cogs/introductions.py` | First intro = 50 pts + badge. Announcement posts to **#achievements** (not inline). |
 | Confessions | `cogs/confessions.py` | Anonymous posting, 6h cooldown, discussion channel, **content filtering** (regex blocklist, 1000 char max), `!report` command (3 reports = auto-delete) |
 | Starboard | `cogs/starboard.py` | Hall of Fame, dynamic reaction thresholds |
 | Invite Reminders | `cogs/invite_reminders.py` | 2-3x/week rotating templates + monthly race |
 | Growth Nudges | `cogs/growth_nudges.py` | Rank teasers at 80% + stagnation nudges at 14 days |
 | Engagement Triggers | `cogs/engagement_triggers.py` | Random tips, social proof, cliffhangers |
-| Economy | `cogs/economy.py` | Circles currency (1 per scored message) |
+| Economy | `cogs/economy.py` | Circles currency (1 per scored message) + **`!give` trading** (10% tax, 500/day max) |
 | Shop | `cogs/shop.py` | 5 permanent items + **rotating daily shop** (3 limited-time items from pool of 8) + **mystery box** (10-item loot table with streak freezes, XP boosts, rank shields) |
-| Auto Events | `cogs/auto_events.py` | 6-day event calendar (Mon-Sat) |
+| Auto Events | `cogs/auto_events.py` | **Themed daily events** (Meme Monday, Trivia Tuesday, Wisdom Wednesday, Hot Take Thursday, Flex Friday, Social Saturday) |
 | Trivia | `cogs/trivia.py` | Tuesday auto-trivia, 20 questions |
 | Server Goals | `cogs/server_goals.py` | Member milestones + weekly message targets |
-| Profiles | `cogs/profiles.py` | Custom bio, color, banner via !profile |
+| Profiles | `cogs/profiles.py` | Custom bio, color, banner via !profile. **Display titles** auto-derived from achievements. **Prestige level** shown. |
 | Factions | `cogs/factions.py` | 4 teams, unlock at rank 21 (lowered from 31), weekly competition |
 | ~~Smart DM~~ | `cogs/smart_dm.py` | **DISABLED** — Superseded by `reengagement.py`. No longer loaded. |
 | Buddy System | `cogs/buddy_system.py` | Mentor pairing, 10-msg goal in 48h |
@@ -256,7 +256,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 ### Phase 3: Ultimate Engagement Engine (17 cogs)
 | Cog | File | Purpose |
 |---|---|---|
-| Onboarding v2 | `cogs/onboarding_v2.py` | **7-day staged pipeline**: T+5s quest DM (4 quests with endowed progress — joining counts as #1), T+2hr progress, T+4hr streak anchor, T+24h check-in, T+48h momentum, T+72h milestone tease, Day 6 report card (positive framing), Day 7 graduation ceremony + Survivor badge + 100 Circles. **Fallback:** posts in #general if DMs disabled. T+5min nudge removed (too aggressive). |
+| Onboarding v2 | `cogs/onboarding_v2.py` | **THE sole welcome/onboarding handler.** Posts #welcome embed, assigns Rookie I role, sends quest DM, runs 7-day pipeline. T+5s quest DM (4 quests with endowed progress — joining counts as #1), T+2hr progress, T+4hr streak anchor, T+24h check-in, T+48h momentum, T+72h milestone tease, Day 6 report card (positive framing), Day 7 graduation ceremony + Survivor badge + 100 Circles. **Fallback:** posts in #general if DMs disabled. **Member ID dedup** prevents double welcomes. |
 | Streaks v2 | `cogs/streaks_v2.py` | **5 streak types** (daily/weekly/social/voice/creative), freeze tokens, grace periods, paired streaks, division leaderboard |
 | Re-engagement | `cogs/reengagement.py` | **8-tier unified pipeline**: Day 1 server callout, Day 2 loss aversion DM, Day 3 social proof, Day 5 competitive loss, Day 7 urgency, Day 14 active loss, Day 30 nostalgia, Day 60 closure (then opt-out) |
 | Loss Aversion | `cogs/loss_aversion.py` | Graduated decay (0.5%-5%/day by inactivity length), **rank demotion** (3-day grace), streak-at-risk notifications (10 PM UTC, streaks ≥7 only, 1 DM/day), competitive displacement alerts (50+ members only), faction relegation (80+ members only) |
@@ -264,14 +264,14 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Daily Wheel | `cogs/daily_wheel.py` | `!spin` -- free once/day, animated reveal, 11 weighted segments (5-500 Circles, XP boosts, streak freeze, jackpot trigger) |
 | Social Graph | `cogs/social_graph.py` | **Friendship score** tracking (replies*3 + mentions*2 + reactions*1 + voice*0.5), 5% weekly decay, `!friends` top 5, `!bestfriend` mutual detection, `!rival @user` 4-week rivalry, **icebreaker matchmaking** (finds lonely new members every 12h, creates Connection Quests) |
 | Circles | `cogs/circles.py` | Friend groups (3-8 members), Certified+ rank required, 200 Circles to create, weekly Circle leaderboard, top Circle gets role color + 50 Circles/member |
-| Content Engine | `cogs/content_engine.py` | **Quick Fire** rounds (3x/day random timing, first 5 replies get bonus), **dead zone detection** (45 min silence = auto-content), **UGC pipeline** (`!submit prompt/hottake/trivia`, admin approval, auto-approve after 3), **trending topics** (word frequency detection) |
+| Content Engine | `cogs/content_engine.py` | **Quick Fire** rounds (always in #general, 3x/day random timing, first 5 replies get bonus), **dead zone detection** (45 min silence = auto-content), **UGC pipeline** (`!submit prompt/hottake/trivia`, admin approval, auto-approve after 3), **trending topics** (word frequency detection) |
 | Debates | `cogs/debates.py` | `!debate start <topic>`, reaction voting, minority side gets 2x points, MVP Debater award, **safety thermostat** (heat > 15 = warning, > 25 = slow mode, > 35 = lock) |
 | Season Pass | `cogs/season_pass.py` | **8-week seasons**, 50 tiers, exponential XP curve, free rewards every 5 tiers, premium tier (5000 Circles), weekly challenges (3/week) + daily challenges (1/day), early bird 2x for first 48h, end-of-season ceremony + rankings |
 | Prestige | `cogs/prestige.py` | **Endgame reset** at rank 41+: reset score/rank, keep coins/badges/faction, earn permanent +5% per level (max +25% at prestige 5), 5 prestige levels with escalating coin rewards (2k-50k) |
 | Engagement Ladder | `cogs/engagement_ladder.py` | Tracks user tiers: lurker -> newcomer -> casual -> regular -> power_user -> evangelist. Weekly recalculation, DMs on tier transitions, `!ladder` command |
 | Health Check | `cogs/healthcheck.py` | Automated self-test: 23 checks (DB, tables, cogs, channels, categories, background tasks, scoring engine, config, data health, permissions). Runs every 6h + `!healthcheck` command |
 | Oracle | `cogs/oracle.py` | Evening prediction ritual — Keeper's Oracle posts daily at 9 PM UTC with cryptic predictions. 200+ templates, 7-day no-repeat. `!oracle` command |
-| Metrics | `cogs/metrics.py` | Retention analytics dashboard — DAU/MAU, D1/D7/D30 cohort retention, churn rate, **onboarding funnel tracking** (joined→welcomed→messaged→graduated). Daily snapshots to `metrics_daily` table. `!metrics` admin command |
+| Metrics | `cogs/metrics.py` | Retention analytics dashboard — DAU/MAU, D1/D7/D30 cohort retention, churn rate, **onboarding funnel tracking** (joined→welcomed→messaged→graduated). Daily snapshots to `metrics_daily` table. `!metrics` admin command. **Auto-alerts** in admin channel if D7 retention < 30% or DAU/MAU < 0.25. |
 | Mega Events | `cogs/mega_events.py` | **Monthly mega events**: The Purge (no DR, 1.5x), Circle Games (2x social, 3x Quick Fire), Community Build (3x invites). One per month, 3-7 days. `active_event_multiplier` property for scoring. |
 | Time Capsules | `cogs/time_capsules.py` | `!timecapsule <message>` sealed for 90 days, then revealed via DM + #general announcement. Max 3 per user. `!capsules` to view active capsules. |
 | Keeper Personality | `cogs/keeper_personality.py` | **Ambient Keeper messages** 2-4x/day in #general. Contextual reactions to recent messages, cryptic observations, streak reminders. Makes bot feel alive at small scale. |
@@ -391,11 +391,13 @@ All DM-sending cogs check `dm_coordinator.py` before sending:
 
 ### Welcome Wagon
 - First 3 users who reply to a new member's first message get **+10 pts + 5 Circles**
+- New member also gets **+5 pts** per welcome reply received
 - New member = joined < 48h + score < 50
 - Reply gets a 👋 reaction as visual feedback
 
 ### Conversation Starter
 - If your message receives **3+ replies within 1 hour**, you get a retroactive **+25 pts + 10 Circles**
+- Replies must be **3+ words** to count (prevents "." farming)
 - Public announcement in channel: "CONVERSATION STARTER — @user's message sparked a discussion!"
 
 ---
@@ -429,7 +431,8 @@ All DM-sending cogs check `dm_coordinator.py` before sending:
 T+5s -> T+2hr -> T+4hr -> T+24h -> T+48h -> T+72h -> Day 6 -> Day 7 graduation
 
 ### Re-engagement (8-Tier, Day 1-60)
-Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM -> Day 14 DM -> Day 30 DM -> Day 60 final DM
+Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM (5x window) -> Day 14 DM (3x, decay warning) -> Day 30 DM (2x, nostalgia) -> Day 60 final DM (1.5x, opt-out)
+- Uses `priority=True` with DM coordinator to bypass 12h rate limit
 
 ### Loss Aversion
 - Graduated decay: 0.5%/day at 30d -> 5%/day at 90d
@@ -491,8 +494,8 @@ Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM -> Day 14 D
 ## FILE STRUCTURE
 ```
 discord/
-├── bot.py              -- Main entry, loads 46 extensions (45 cogs + setup_server)
-├── config.py           -- All constants (~800 lines), scoring weights, engagement params
+├── bot.py              -- Main entry, loads 47 extensions (46 active cogs + setup_server). 3 cogs disabled: streaks, welcome, onboarding
+├── config.py           -- All constants (~950 lines), scoring weights, engagement params, display titles, keeper personality
 ├── database.py         -- SQLite schema (~56 tables) + async CRUD helpers + migrations
 ├── scoring.py          -- 6-layer scoring engine (pure logic, no Discord deps)
 ├── ranks.py            -- 100 rank definitions + helpers
@@ -525,8 +528,8 @@ discord/
 │   ├── metrics.py          -- NEW: Retention analytics dashboard
 │   ├── media_feed.py
 │   ├── oracle.py           -- NEW: Evening prediction ritual
-│   ├── onboarding.py
-│   ├── onboarding_v2.py    -- NEW: 7-day staged pipeline
+│   ├── onboarding.py       -- DISABLED (superseded by onboarding_v2)
+│   ├── onboarding_v2.py    -- SOLE welcome/onboarding handler (embed + DM + role + 7-day pipeline)
 │   ├── prestige.py         -- NEW: Prestige system
 │   ├── profiles.py
 │   ├── reactions.py
@@ -547,7 +550,7 @@ discord/
 │   ├── time_capsules.py    -- NEW: !timecapsule sealed 90 days
 │   ├── keeper_personality.py -- NEW: Ambient Keeper personality messages
 │   ├── weekly_recap.py     -- UPDATED: Personal highlight DMs
-│   └── welcome.py
+│   └── welcome.py          -- DISABLED (superseded by onboarding_v2)
 ├── dm_coordinator.py   -- NEW: Cross-cog DM rate limiter (1/12h, 3/7d)
 ├── deploy/             -- circle-bot.service (systemd)
 ├── prompts/            -- LLM prompts for engagement design
@@ -593,7 +596,7 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 2. ~~**Legacy DM overlap:**~~ **FIXED** — `smart_dm.py` disabled, `reengagement.py` is the sole pipeline. Onboarding/re-engagement pipelines deduplicated.
 3. **Factions warfare 2.0:** The plan includes territory control, treasury, loyalty, traitor mechanics. The current `factions.py` is basic. The config constants exist in `config.py` (FACTION_WAR_CHALLENGE_CYCLE, FACTION_TERRITORY_BONUS, etc.) but the cog hasn't been rewritten yet.
 4. ~~**Enhanced weekly recap:**~~ **BUILT** — `weekly_recap.py` now posts a multi-embed "Sunday Ceremony" with stats overview, streak hall (daily + paired), social bonds (best friend pair + voice hours), and faction standings (conditional).
-5. **Enhanced profiles:** Plan calls for display titles, legacy timeline, activity crown. Config exists (DISPLAY_TITLES, RANK_PERKS) but not wired into profiles.py.
+5. ~~**Enhanced profiles (partial):**~~ **PARTIALLY DONE** — Display titles auto-derived from achievements + prestige level shown in `!profile`. Legacy timeline and activity crown still not built.
 6. ~~**Oracle system:**~~ **BUILT** — `cogs/oracle.py` posts daily at 9 PM UTC, 200+ templates, 7-day no-repeat, `!oracle` command.
 7. ~~**Time capsules:**~~ **BUILT** — `cogs/time_capsules.py` implements `!timecapsule` and `!capsules`. 90-day seal, DM reveal + #general announcement.
 8. **Hidden moderation layer:** Invisible reputation score (config exists: MOD_REPUTATION_*). Not yet implemented.
@@ -648,6 +651,20 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 - **NEW:** Metrics alert system — If D7 retention < 30% or DAU/MAU < 0.25, auto-posts warning embed in admin/mod channel.
 - **NEW:** Config constants: `POST_SCORE_MULT_CAP`, `METRICS_ALERT_D7_THRESHOLD`, `METRICS_ALERT_DAU_MAU_THRESHOLD`.
 
+**Audit Fix 6 (2026-04-02) — Live user testing fixes, 12 issues across 12 files:**
+- ~~**Double/triple welcome messages:**~~ **FIXED** — Disabled `welcome.py` and `onboarding.py`. `onboarding_v2.py` is now the SOLE handler for on_member_join (posts #welcome embed, assigns Rookie I role, sends quest DM). Member ID dedup added to prevent Discord double-firing events.
+- ~~**Rank-up spam in #general:**~~ **FIXED** — Inline rank-up messages removed entirely. Rank-ups now post ONLY to #rank-ups channel, and ONLY at group boundaries (Rookie→Regular, Regular→Certified, etc. — every 10th tier). Sub-rank changes are silent.
+- ~~**Ranks flying by too fast:**~~ **FIXED** — Raised minimum threshold gap from 1 to 50 pts per rank. Rookie II now requires 50 pts (was 11). Early ranks are linear (50 pts each) before transitioning to exponential at ~tier 17.
+- ~~**10 database.py schema mismatches:**~~ **FIXED** — `database.py` and cog files had different column names for same tables (e.g., `current_count` vs `current_streak`). Aligned all schemas to match what cogs expect. Dropped and recreated affected tables: `streaks_v2`, `season_progress`, `circles`, `circle_members`, `content_submissions`, `trending_topics`, `demotion_watch`, `displacement_log`, `daily_spins`, `streak_freezes`, `active_boosts`, `quick_fire_log`, `quick_fire_replies`.
+- ~~**get_or_create_user race condition:**~~ **FIXED** — Changed to `INSERT OR IGNORE` to handle concurrent calls from multiple cogs on member join.
+- ~~**Duplicate leaderboard posts on restart:**~~ **FIXED** — Leaderboard now searches channel history for existing bot embed and edits it, instead of always posting new.
+- ~~**Triple media feed posts:**~~ **FIXED** — Added message ID dedup set to media_feed.py. Same message can only be mirrored once.
+- ~~**Double/triple scoring per message:**~~ **FIXED** — Added message ID dedup to scoring_handler. Discord can re-deliver on_message events; now only first delivery is scored.
+- ~~**Achievements posting inline in channels:**~~ **FIXED** — Routed all achievement/badge announcements to new #achievements channel. Introduction rewards also route there.
+- ~~**Quick Fire posting in random channels:**~~ **FIXED** — Quick Fire now always posts to #general instead of most-active channel. Prevents gym prompts in #politics etc.
+- **NEW:** #achievements channel added to CHANNEL_STRUCTURE for badge/intro reward announcements.
+- **IMPORTANT PATTERN:** Discord fires `on_member_join` and `on_message` events multiple times in some conditions. ALL cogs that respond to these events MUST implement message/member ID dedup to prevent duplicate bot output. Use in-memory sets with bounded size.
+
 ---
 
 ## CRITICAL: Standing Instructions for Every Session
@@ -656,7 +673,7 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 **The bot runs on the Pi, not locally.** After ANY code changes:
 1. Push all modified files via tar over SSH
 2. Restart the circle-bot systemd service
-3. Check logs to verify ALL 48 cogs loaded successfully
+3. Check logs to verify ALL 46 active cogs loaded successfully
 4. If any cog fails to load, fix it before ending the session
 
 ### 2. Keep Documentation Updated
