@@ -430,19 +430,8 @@ class ContentEngine(commands.Cog):
         if not guild:
             return
 
-        active_channel_id = await _get_most_active_channel(guild.id, hours=2)
-
-        channel = None
-        if active_channel_id:
-            channel = guild.get_channel(active_channel_id)
-            # Make sure it's not excluded
-            if channel and channel.name in EXCLUDED_CHANNELS:
-                channel = None
-
-        # Fallback to #general
-        if not channel:
-            channel = discord.utils.get(guild.text_channels, name="general")
-
+        # Always post Quick Fire in #general — it's a server-wide engagement mechanic
+        channel = discord.utils.get(guild.text_channels, name="general")
         if channel:
             await self._post_quick_fire(channel)
 
