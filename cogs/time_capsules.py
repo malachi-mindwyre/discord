@@ -35,7 +35,7 @@ async def _ensure_table():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
                 message TEXT NOT NULL,
-                created_at TEXT NOT NULL,
+                submitted_at TEXT NOT NULL,
                 reveal_at TEXT NOT NULL,
                 revealed INTEGER DEFAULT 0
             )
@@ -49,14 +49,14 @@ async def _create_capsule(user_id: int, message: str) -> dict:
     reveal_at = now + timedelta(days=CAPSULE_DURATION_DAYS)
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
-            "INSERT INTO time_capsules (user_id, message, created_at, reveal_at) "
+            "INSERT INTO time_capsules (user_id, message, submitted_at, reveal_at) "
             "VALUES (?, ?, ?, ?)",
             (user_id, message, now.isoformat(), reveal_at.isoformat()),
         )
         await db.commit()
         return {
             "id": cursor.lastrowid,
-            "created_at": now,
+            "submitted_at": now,
             "reveal_at": reveal_at,
         }
 
@@ -73,10 +73,10 @@ async def _active_capsule_count(user_id: int) -> int:
 
 
 async def _get_active_capsules(user_id: int) -> list[tuple]:
-    """Return all unrevealed capsules for a user: (id, created_at, reveal_at)."""
+    """Return all unrevealed capsules for a user: (id, submitted_at, reveal_at)."""
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
-            "SELECT id, created_at, reveal_at FROM time_capsules "
+            "SELECT id, submitted_at, reveal_at FROM time_capsules "
             "WHERE user_id = ? AND revealed = 0 ORDER BY reveal_at ASC",
             (user_id,),
         )
@@ -84,11 +84,11 @@ async def _get_active_capsules(user_id: int) -> list[tuple]:
 
 
 async def _get_due_capsules() -> list[tuple]:
-    """Return capsules ready to be revealed: (id, user_id, message, created_at)."""
+    """Return capsules ready to be revealed: (id, user_id, message, submitted_at)."""
     now = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
         cursor = await db.execute(
-            "SELECT id, user_id, message, created_at FROM time_capsules "
+            "SELECT id, user_id, message, submitted_at FROM time_capsules "
             "WHERE reveal_at <= ? AND revealed = 0",
             (now,),
         )
@@ -107,9 +107,9 @@ async def _mark_revealed(capsule_id: int):
 
 # --- Helpers -----------------------------------------------------------------
 
-def _days_ago_text(created_at_iso: str) -> str:
+def _days_ago_text(submitted_at_iso: str) -> str:
     """Return a human-readable string for how long ago the capsule was created."""
-    created = datetime.fromisoformat(created_at_iso)
+    created = datetime.fromisoformat(submitted_at_iso)
     if created.tzinfo is None:
         created = created.replace(tzinfo=timezone.utc)
     delta = datetime.now(timezone.utc) - created
@@ -187,7 +187,7 @@ class TimeCapsules(commands.Cog):
             # Find #general for announcements
             general_channel = discord.utils.get(guild.text_channels, name="general")
 
-            for capsule_id, user_id, message, created_at in due:
+            for capsule_id, user_id, message, submitted_at in due:
                 member = guild.get_member(user_id)
                 if not member:
                     # User left the server -- still mark revealed
@@ -195,7 +195,7 @@ class TimeCapsules(commands.Cog):
                     logger.info("Capsule %d: user %d no longer in server, marked revealed", capsule_id, user_id)
                     continue
 
-                ago_text = _days_ago_text(created_at)
+                ago_text = _days_ago_text(submitted_at)
 
                 # DM the user
                 dm_embed = discord.Embed(
@@ -326,9 +326,9 @@ class TimeCapsules(commands.Cog):
             return
 
         lines: list[str] = []
-        for i, (capsule_id, created_at, reveal_at) in enumerate(rows, 1):
+        for i, (capsule_id, submitted_at, reveal_at) in enumerate(rows, 1):
             until = _days_until_text(reveal_at)
-            created_date = datetime.fromisoformat(created_at).strftime("%b %d, %Y")
+            created_date = datetime.fromisoformat(submitted_at).strftime("%b %d, %Y")
             lines.append(f"**#{i}** \u2014 Sealed {created_date} \u2022 Opens in **{until}**")
 
         embed = discord.Embed(
