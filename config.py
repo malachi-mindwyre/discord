@@ -962,6 +962,14 @@ KEEPER_PERSONALITY_MESSAGES = [
     "Some of you treat this like a job. I respect the dedication.",
     "A mystery drop is always 100 messages away. Keep posting.",
     "The Circle has existed for eons. You are but a chapter in its story.",
+    "New here? Read #info — it has everything. Ranks, scoring, commands, secrets. All of it.",
+    "Type `!help` to see what I can do. Most of you have no idea.",
+    "Reminder: `!rank` shows where you stand. `!daily` gives free coins. `!spin` gives you a chance at the jackpot. You're welcome.",
+    "Half of you don't know about `!streak`, `!profile`, or `!badges`. The other half are winning because of them.",
+    "Everything you need to know is in #info. I wrote it myself. You should be honored.",
+    "Pro tip: `!daily` and `!spin` reset every day. Free points and coins. Stop leaving them on the table.",
+    "I see new faces who haven't checked #info yet. The sacred texts were written for a reason.",
+    "The commands exist for a reason. `!rank` `!top` `!profile` `!streak` `!daily` `!spin` — use them.",
 ]
 
 # ─── Display Titles (auto-derived from achievements) ────────────────────
