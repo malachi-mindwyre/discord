@@ -294,7 +294,8 @@ class WeeklyRecap(commands.Cog):
                 embed.set_footer(text="The Circle sees your effort. Keep it up.")
 
                 try:
-                    await member.send(embed=embed)
+                    from dm_coordinator import get_dm_optout_view
+                    await member.send(embed=embed, view=get_dm_optout_view())
                     await global_record_dm(row["user_id"], "weekly_recap")
                     dm_count += 1
                     await asyncio.sleep(1)  # Rate limit protection

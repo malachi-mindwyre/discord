@@ -349,7 +349,8 @@ class LossAversion(commands.Cog):
             )
             dm_embed.set_footer(text="The Circle • The Keeper remembers")
             try:
-                await member.send(embed=dm_embed)
+                from dm_coordinator import get_dm_optout_view
+                await member.send(embed=dm_embed, view=get_dm_optout_view())
             except (discord.HTTPException, discord.Forbidden):
                 pass
 
@@ -421,7 +422,8 @@ class LossAversion(commands.Cog):
             embed.set_footer(text="The Circle • The Keeper is watching")
 
             try:
-                await member.send(embed=embed)
+                from dm_coordinator import get_dm_optout_view
+                await member.send(embed=embed, view=get_dm_optout_view())
                 await global_record_dm(user_id, "loss_aversion")
                 self._streak_dm_sent_today[user_id] = self._streak_dm_sent_today.get(user_id, 0) + 1
             except (discord.HTTPException, discord.Forbidden):
@@ -506,7 +508,8 @@ class LossAversion(commands.Cog):
                 )
                 embed.set_footer(text="The Circle • Reclaim your position")
                 try:
-                    await member.send(embed=embed)
+                    from dm_coordinator import get_dm_optout_view
+                    await member.send(embed=embed, view=get_dm_optout_view())
                 except (discord.HTTPException, discord.Forbidden):
                     pass
 

@@ -28,7 +28,7 @@ from database import (
     unlock_achievement,
     update_onboarding_stage,
 )
-from dm_coordinator import can_dm as global_can_dm, record_dm as global_record_dm
+from dm_coordinator import can_dm as global_can_dm, record_dm as global_record_dm, is_opted_out, set_dm_optout
 
 logger = logging.getLogger("circle.onboarding_v2")
 
@@ -98,14 +98,15 @@ def _seconds_since(iso_str: str) -> float:
 
 
 async def _safe_dm(member: discord.Member, embed: discord.Embed, *, skip_coordinator: bool = False) -> bool:
-    """Send a DM embed. Returns True on success, False if DMs are disabled.
+    """Send a DM embed with opt-out button. Returns True on success, False if DMs are disabled.
     Checks global DM coordinator to prevent cross-cog DM fatigue."""
     if not skip_coordinator:
         if not await global_can_dm(member.id, "onboarding_v2"):
             logger.debug("DM to %s blocked by global coordinator", member.id)
             return False
     try:
-        await member.send(embed=embed)
+        from dm_coordinator import get_dm_optout_view
+        await member.send(embed=embed, view=get_dm_optout_view())
         await global_record_dm(member.id, "onboarding_v2")
         return True
     except (discord.Forbidden, discord.HTTPException) as exc:
@@ -161,6 +162,26 @@ class OnboardingV2(commands.Cog):
 
     async def cog_unload(self):
         self.onboarding_loop.cancel()
+
+    # ── DM Preference Command ────────────────────────────────────────────────
+
+    @commands.command(name="dms")
+    async def dms_toggle(self, ctx: commands.Context, setting: str = ""):
+        """Toggle bot DMs on or off. Usage: !dms on | !dms off"""
+        setting = setting.strip().lower()
+        if setting == "off":
+            await set_dm_optout(ctx.author.id, True)
+            await ctx.send(f"🔕 {ctx.author.mention} Bot DMs **disabled**. Use `!dms on` to re-enable.")
+        elif setting == "on":
+            await set_dm_optout(ctx.author.id, False)
+            await ctx.send(f"✅ {ctx.author.mention} Bot DMs **re-enabled**.")
+        else:
+            opted_out = await is_opted_out(ctx.author.id)
+            status = "**off** 🔕" if opted_out else "**on** ✅"
+            await ctx.send(
+                f"{ctx.author.mention} Your bot DMs are currently {status}.\n"
+                f"Use `!dms off` to stop all bot DMs, or `!dms on` to re-enable."
+            )
 
     # ── Utility ───────────────────────────────────────────────────────────────
 

@@ -140,6 +140,13 @@ async def main():
     await init_db()
     print("⚫ Database initialized.")
 
+    # Initialize DM coordinator tables (including dm_optout)
+    from dm_coordinator import ensure_dm_table, DMOptOutView
+    await ensure_dm_table()
+
+    # Register persistent views (survive bot restarts)
+    bot.add_view(DMOptOutView())
+
     # Load all cogs
     for ext in COG_EXTENSIONS:
         try:

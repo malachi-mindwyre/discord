@@ -466,7 +466,8 @@ class Reengagement(commands.Cog):
             # Send the DM
             dm_sent = False
             try:
-                await member.send(embed=embed)
+                from dm_coordinator import get_dm_optout_view
+                await member.send(embed=embed, view=get_dm_optout_view())
                 await global_record_dm(user_id, "reengagement")
                 dm_sent = True
                 logger.info(
