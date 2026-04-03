@@ -970,6 +970,9 @@ KEEPER_PERSONALITY_MESSAGES = [
     "Pro tip: `!daily` and `!spin` reset every day. Free points and coins. Stop leaving them on the table.",
     "I see new faces who haven't checked #info yet. The sacred texts were written for a reason.",
     "The commands exist for a reason. `!rank` `!top` `!profile` `!streak` `!daily` `!spin` — use them.",
+    "Your name color changes every time you rank up. Gray → Green → Blue → Orange → Red → Purple → Teal → Gold → Pink → White. Check #info.",
+    "Want a different name color? Rank up. Each rank group has its own color. Check `!rank` to see how close you are.",
+    "Reminder: #info has the full guide — how scoring works, what each rank unlocks, every command, and more. Read it.",
 ]
 
 # ─── Display Titles (auto-derived from achievements) ────────────────────
