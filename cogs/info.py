@@ -23,7 +23,18 @@ class Info(commands.Cog):
             await ctx.send("⚠️ #info channel not found. Run `!setup` first.")
             return
 
-        await ctx.send("⚫ Keeper is writing the sacred texts...")
+        await ctx.send("⚫ Keeper is rewriting the sacred texts...")
+
+        # Purge existing bot messages in #info so it doesn't grow on each update
+        try:
+            deleted = await info_channel.purge(
+                limit=200,
+                check=lambda m: m.author == ctx.guild.me,
+            )
+            if deleted:
+                await ctx.send(f"⚫ Cleared {len(deleted)} old messages from #info.")
+        except discord.HTTPException:
+            pass
 
         embeds = [
             self._build_welcome_embed(ctx.guild),
