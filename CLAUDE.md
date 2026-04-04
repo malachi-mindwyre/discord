@@ -244,7 +244,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Achievements | `cogs/achievements.py` | 30+ one-time badge unlocks. Announcements post to **#achievements** channel (not inline). |
 | Scoring Handler | `cogs/scoring_handler.py` | **6-layer scoring engine**, anti-spam, rank-ups (**#rank-ups only, group boundaries only**), critical hits, bonus drops, 2x XP window integration, active boost integration, season XP, variable rewards delegation, **first-message instant feedback**, parent_message_id tracking, **message ID dedup**, **POST_SCORE_MULT_CAP (10x)**, **daily cap re-enforcement after multipliers** |
 | Leaderboard | `cogs/leaderboard.py` | Auto-updating hourly embed + !rank, !top, !stats. **Edits existing embed on restart** (searches channel history, no duplicate posts). |
-| Media Feed | `cogs/media_feed.py` | Scrapes all channels for media -> mirrors to #media-feed. **Message ID dedup** prevents double posts. |
+| Media Feed | `cogs/media_feed.py` | Scrapes all channels for media -> mirrors to #media-feed. **Message ID dedup** prevents double posts. **Auto-cleanup:** deleting original message also deletes its #media-feed mirror (single + bulk delete). |
 | ~~Welcome~~ | `cogs/welcome.py` | **DISABLED** — Superseded by `onboarding_v2.py` which handles #welcome embed + DM + role assignment. |
 | Invites | `cogs/invites.py` | Tracks who invited who, validates after 24h + 5 msgs |
 | Comeback | `cogs/comeback.py` | Graduated decay (legacy decay logic) |
@@ -261,7 +261,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | ~~Onboarding~~ | `cogs/onboarding.py` | **DISABLED** — Superseded by `onboarding_v2.py`. Was causing duplicate DMs on join. |
 | Introductions | `cogs/introductions.py` | First intro = 50 pts + badge. Announcement posts to **#achievements** (not inline). |
 | Confessions | `cogs/confessions.py` | Anonymous posting, 6h cooldown, discussion channel, **content filtering** (regex blocklist, 1000 char max), `!report` command (3 reports = auto-delete) |
-| Starboard | `cogs/starboard.py` | Hall of Fame, dynamic reaction thresholds |
+| Starboard | `cogs/starboard.py` | Hall of Fame. Counts **unique users** who reacted (not total emojis). Author excluded. Threshold: 5 unique users (scales with server size). |
 | Invite Reminders | `cogs/invite_reminders.py` | 2-3x/week rotating templates + monthly race |
 | Growth Nudges | `cogs/growth_nudges.py` | Rank teasers at 80% + stagnation nudges at 14 days |
 | Engagement Triggers | `cogs/engagement_triggers.py` | Random tips, social proof, cliffhangers |
@@ -727,6 +727,8 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 - **Bot re-invited with expanded permissions** — Added Manage Server (for AutoMod) and Moderate Members (for timeouts). New permissions value: `1099780188272`.
 - **Config constants:** `MOD_MASS_MENTION_LIMIT = 7`, `MOD_MASS_MENTION_TIMEOUT = 600`, `MOD_MENTION_SPAM_WINDOW = 60`, `MOD_MENTION_SPAM_COUNT = 4`.
 - **Tailscale fallback:** When off home LAN (cellular), use Tailscale IP `100.107.165.3` instead of `192.168.10.177`.
+- **Hall of Fame now counts unique users** — One user adding 5 emojis = 1 vote, not 5. Post author's own reactions excluded. Minimum threshold raised to 5 unique users at all server sizes.
+- **Media feed auto-cleanup** — When any message with media is deleted (by mod, bot, or manually), its mirror in #media-feed is automatically deleted. Works for single and bulk deletes (`!purge`).
 
 ---
 
@@ -742,10 +744,12 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 3. Check logs to verify ALL 46 active cogs loaded successfully
 4. If any cog fails to load, fix it before ending the session
 
-### 2. Keep Documentation Updated
-After making changes, update:
-- **CLAUDE.md** -- This file. A fresh chat should have 100% accurate context.
-- **cogs/info.py** -- If new user-facing features were added, update !postinfo embeds.
+### 2. ALWAYS Update Documentation + Commit + Push After EVERY Change
+**This is mandatory and automatic — do NOT wait for the user to ask.**
+After ANY code changes, BEFORE reporting completion:
+1. Update **CLAUDE.md** — this file must always reflect the current state. A fresh chat should have 100% accurate context. Update cog descriptions, command tables, config values, audit fix entries, and any other affected sections.
+2. Update **cogs/info.py** — if new user-facing features were added, update !postinfo embeds.
+3. **Commit and push ALL changes** (code + docs) to GitHub. Every deploy must be followed by a commit+push.
 
 ### 3. Test After Deploy
 - Check systemd status shows `active (running)`
