@@ -363,6 +363,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!cleanup` | setup_server | Fix orphaned channels, remove duplicate categories |
 | `!purgeall` | setup_server | Delete ALL messages in ALL text channels (irreversible) |
 | `!metrics` | metrics | Show retention dashboard (DAU/MAU, D1/D7/D30 retention) |
+| `!fixroles` | leaderboard | Scan all members, ensure Discord role matches DB rank (fixes missing/stale roles) |
 | `!purge @user [min]` | moderation | Delete all messages from a user in the last N minutes (default 30, no cap) |
 | `!nuke [min]` | moderation | Delete all detected spam across all channels in the last N minutes (no cap) |
 

@@ -296,5 +296,50 @@ class Leaderboard(commands.Cog):
         await ctx.send(f"⚫ {member.display_name} has been placed at **{rank.name}** by decree.")
 
 
+    @commands.command(name="fixroles")
+    @commands.is_owner()
+    async def fixroles_cmd(self, ctx: commands.Context):
+        """Scan all members and ensure their Discord role matches their DB rank. Owner only."""
+        from database import get_or_create_user
+        guild = ctx.guild
+        if not guild:
+            return
+
+        status = await ctx.send("⚫ Scanning all members and fixing roles...")
+        rank_role_names = {r.name for r in ALL_RANKS}
+        fixed = 0
+
+        for member in guild.members:
+            if member.bot:
+                continue
+
+            user = await get_or_create_user(member.id, str(member))
+            expected_rank = RANK_BY_TIER.get(user["current_rank"], ALL_RANKS[0])
+
+            # Get their current rank roles
+            current_rank_roles = [r for r in member.roles if r.name in rank_role_names]
+            expected_role = discord.utils.get(guild.roles, name=expected_rank.name)
+
+            if not expected_role:
+                continue
+
+            # Check if they already have the correct role and only that role
+            has_correct = expected_role in member.roles
+            has_extra = any(r != expected_role for r in current_rank_roles)
+
+            if has_correct and not has_extra:
+                continue  # Already correct
+
+            try:
+                if current_rank_roles:
+                    await member.remove_roles(*current_rank_roles, reason="fixroles: cleanup")
+                await member.add_roles(expected_role, reason=f"fixroles: set to {expected_rank.name}")
+                fixed += 1
+            except discord.Forbidden:
+                pass
+
+        await status.edit(content=f"⚫ Fixed roles for **{fixed}** members.")
+
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(Leaderboard(bot))
