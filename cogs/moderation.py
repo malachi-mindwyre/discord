@@ -23,6 +23,8 @@ from config import (
     MOD_DUPLICATE_WINDOW,
     MOD_DUPLICATE_COUNT,
     MOD_EVERYONE_TIMEOUT_SECONDS,
+    MOD_MASS_MENTION_LIMIT,
+    MOD_MASS_MENTION_TIMEOUT,
 )
 
 logger = logging.getLogger("circle.moderation")
@@ -84,9 +86,35 @@ class Moderation(commands.Cog):
                 logger.warning("Missing permissions to delete @everyone message from %s", message.author)
             return  # Don't process further checks for this message
 
+        # --- Check 2: Mass mentions (5+ individual user pings) ---
+        if len(message.mentions) >= MOD_MASS_MENTION_LIMIT:
+            try:
+                await message.delete()
+                self.deleted_message_ids.add(message.id)
+                logger.info(
+                    "Mass mention spam from %s (%s): %d mentions",
+                    message.author, message.author.id, len(message.mentions),
+                )
+                try:
+                    until = discord.utils.utcnow() + timedelta(seconds=MOD_MASS_MENTION_TIMEOUT)
+                    await message.author.timeout(until, reason="Spam: mass mentioning users")
+                except discord.Forbidden:
+                    pass
+                try:
+                    await message.channel.send(
+                        f"🛑 {message.author.mention} — mass mentioning is not allowed. "
+                        f"Timed out for {MOD_MASS_MENTION_TIMEOUT // 60} minutes.",
+                        delete_after=10,
+                    )
+                except discord.HTTPException:
+                    pass
+            except discord.Forbidden:
+                logger.warning("Missing permissions to delete mass mention from %s", message.author)
+            return
+
         now = message.created_at.timestamp()
 
-        # --- Check 2: Rate limiting (rapid-fire) ---
+        # --- Check 3: Rate limiting (rapid-fire) ---
         timestamps = self._message_timestamps[message.author.id]
         timestamps.append(now)
         # Clean old timestamps
@@ -120,7 +148,7 @@ class Moderation(commands.Cog):
                     pass
             return
 
-        # --- Check 3: Duplicate/repetitive content ---
+        # --- Check 4: Duplicate/repetitive content ---
         normalized = _collapse_repeats(message.content)
         if len(normalized) < 2:
             return  # Too short to meaningfully check
@@ -204,6 +232,9 @@ class Moderation(commands.Cog):
             content = m.content
             # @everyone or @here spam
             if "@everyone" in content or "@here" in content:
+                return True
+            # Mass mentions (5+ individual pings)
+            if len(m.mentions) >= MOD_MASS_MENTION_LIMIT:
                 return True
             # Repeated character spam (like "AAAAAAA")
             collapsed = _collapse_repeats(content)

@@ -166,6 +166,11 @@ class ScoringHandler(commands.Cog):
         if len(self._scored_message_ids) > 500:
             self._scored_message_ids = set(list(self._scored_message_ids)[-250:])
 
+        # Skip messages deleted by moderation (mass mentions, @everyone, etc.)
+        mod_cog = self.bot.get_cog("Moderation")
+        if mod_cog and message.id in mod_cog.deleted_message_ids:
+            return
+
         # Anti-spam checks
         if self._check_spam(user_id):
             return
