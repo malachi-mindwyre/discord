@@ -351,6 +351,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 ### Admin Commands
 | Command | Cog | Description |
 |---|---|---|
+| `!admin` | leaderboard | List all admin commands in a single embed. Owner only. |
 | `!setup` | setup_server | Creates all channels, categories, 100 rank roles + runs lockdown |
 | `!lockdown` | setup_server | Strip mention_everyone from roles, hide #bot-commands, create AutoMod mention-spam rule |
 | `!postinfo` | info | Posts guide embeds to #info |

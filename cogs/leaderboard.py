@@ -237,6 +237,44 @@ class Leaderboard(commands.Cog):
         )
         await ctx.send(embed=embed)
 
+    @commands.command(name="admin")
+    @commands.is_owner()
+    async def admin_cmd(self, ctx: commands.Context):
+        """List all admin commands. Owner only."""
+        lines = [
+            "**Server Setup**",
+            "`!setup` — Create all channels, categories, 100 rank roles + lockdown",
+            "`!lockdown` — Strip mention perms, hide #bot-commands, create AutoMod rule",
+            "`!cleanup` — Fix orphaned channels, remove duplicate categories",
+            "`!purgeall` — Delete ALL messages in ALL text channels (irreversible)",
+            "`!postinfo` — Post/refresh guide embeds in #info",
+            "",
+            "**User Management**",
+            "`!reset @user` — Reset score to 0, strip rank roles, assign Rookie I",
+            "`!setrank @user <1-100>` — Set a user's rank + update their role",
+            "`!fixroles` — Scan all members, fix any mismatched rank roles",
+            "",
+            "**Moderation**",
+            "`!purge @user [minutes]` — Delete a user's messages (default 30min, no cap)",
+            "`!nuke [minutes]` — Delete all detected spam across all channels (no cap)",
+            "",
+            "**Analytics & Diagnostics**",
+            "`!healthcheck` / `!hc` — Run 23 system checks",
+            "`!metrics` — Retention dashboard (DAU/MAU, D1/D7/D30)",
+            "`!recap` — Manually trigger weekly recap",
+            "",
+            "**Engagement**",
+            "`!debate start <topic>` — Start a structured debate",
+            "`!approve <id>` / `!reject <id>` — Approve/reject UGC submissions",
+        ]
+        embed = discord.Embed(
+            title="⚫ ADMIN COMMANDS",
+            description="\n".join(lines),
+            color=EMBED_COLOR_PRIMARY,
+        )
+        embed.set_footer(text="Owner only — all commands restricted to BOT_OWNER_ID")
+        await ctx.send(embed=embed)
+
     # ─── Admin Commands ────────────────────────────────────────────────────
 
     @commands.command(name="reset")
