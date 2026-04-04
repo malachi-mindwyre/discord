@@ -197,17 +197,18 @@ class Moderation(commands.Cog):
     @commands.command(name="purge")
     @commands.is_owner()
     async def purge_user(self, ctx: commands.Context, member: discord.Member, minutes: int = 30):
-        """Delete all messages from a user in the last N minutes across all channels. Owner only."""
-        minutes = min(minutes, 120)
+        """Delete all messages from a user in the last N minutes across all channels. Owner only. No cap."""
         cutoff = discord.utils.utcnow() - timedelta(minutes=minutes)
         status = await ctx.send(f"⚫ Purging messages from {member.mention} in the last {minutes} minutes...")
 
         total = 0
+        target_id = member.id  # capture for lambda
         for channel in ctx.guild.text_channels:
             try:
                 deleted = await channel.purge(
-                    limit=500,
-                    check=lambda m: m.author.id == member.id and m.created_at > cutoff,
+                    limit=None,
+                    check=lambda m: m.author.id == target_id and m.created_at > cutoff,
+                    oldest_first=False,
                 )
                 total += len(deleted)
             except (discord.Forbidden, discord.HTTPException):
@@ -218,9 +219,8 @@ class Moderation(commands.Cog):
     @commands.command(name="nuke")
     @commands.is_owner()
     async def nuke_spam(self, ctx: commands.Context, minutes: int = 60):
-        """Delete ALL messages that look like spam in the last N minutes. Owner only.
-        Detects: @everyone spam, repeated 'AAA' content, messages with 3+ @everyone per message."""
-        minutes = min(minutes, 120)
+        """Delete ALL messages that look like spam in the last N minutes. Owner only. No cap.
+        Detects: @everyone spam, mass mentions, repeated 'AAA' content."""
         cutoff = discord.utils.utcnow() - timedelta(minutes=minutes)
         status = await ctx.send(f"⚫ Nuking spam across all channels from the last {minutes} minutes...")
 
@@ -245,7 +245,7 @@ class Moderation(commands.Cog):
         total = 0
         for channel in ctx.guild.text_channels:
             try:
-                deleted = await channel.purge(limit=500, check=is_spam)
+                deleted = await channel.purge(limit=None, check=is_spam, oldest_first=False)
                 total += len(deleted)
             except (discord.Forbidden, discord.HTTPException):
                 pass
