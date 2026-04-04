@@ -11,10 +11,10 @@ A custom Discord bot called **"Keeper"** for a social server called **"The Circl
 - **Bot Application ID:** `1489119042479329320`
 - **Bot Name:** Keeper#4569
 - **Bot Token:** Stored in `.env` file (never commit this)
-- **Bot Invite URL:** `https://discord.com/oauth2/authorize?client_id=1489119042479329320&permissions=268560464&integration_type=0&scope=bot`
+- **Bot Invite URL:** `https://discord.com/oauth2/authorize?client_id=1489119042479329320&permissions=1099780188272&integration_type=0&scope=bot`
 - **Developer Portal:** https://discord.com/developers/applications (search "Keeper")
 - **Required Intents:** Message Content, Server Members, Presences (all enabled)
-- **Bot Permissions:** Manage Roles, Manage Channels, Send Messages, Embed Links, Attach Files, Read Message History, Add Reactions, Manage Messages
+- **Bot Permissions:** Manage Server, Manage Roles, Manage Channels, Send Messages, Embed Links, Attach Files, Read Message History, Add Reactions, Manage Messages, Moderate Members
 
 ## Server Listings (all live)
 - **Disboard:** https://disboard.org — tags: community, leveling, social, memes, active. Bump up to 4x/day.
@@ -38,12 +38,14 @@ A custom Discord bot called **"Keeper"** for a social server called **"The Circl
 - **Total DB Tables:** ~50
 
 ## Raspberry Pi Access
-- **IP:** `192.168.10.177`
+- **LAN IP:** `192.168.10.177` (use when on home WiFi)
+- **Tailscale IP:** `100.107.165.3` (use when on cellular/remote — hostname `pihole5`)
 - **Username:** `pi5`
 - **Password:** `insanebeef45`
 - **Project Path:** `/home/pi5/discord/`
 - **Service Name:** `circle-bot` (systemd, auto-starts on boot)
 - **IMPORTANT:** Pi also runs Pi-hole for ad blocking -- don't touch anything outside ~/discord
+- **NOTE:** If LAN IP times out, switch to Tailscale IP. Run `tailscale status` to verify connectivity.
 
 ### SSH Commands (copy-paste ready)
 ```bash
@@ -145,10 +147,30 @@ final_score = BASE * SOCIAL * TEMPORAL * ENGAGEMENT * META
 - **Variable rewards delegation:** Jackpot contribution + mystery drops via `variable_rewards.on_scored_message()`
 - **Welcome-back gift:** Comeback users get 50-500 Circles scaling with days absent
 
-### Anti-Spam
+### Anti-Spam (Scoring)
 - 15s cooldown between scored messages
 - 5 msgs in 10s = 5 min scoring pause
 - Duplicate message detection (5 min window)
+- Scoring handler skips any message deleted by moderation cog
+
+### Anti-Spam (Moderation — 3 layers)
+**Layer 1: Discord Permissions** (prevents pings from firing at all)
+- `mention_everyone` stripped from all roles except owner's (via `!lockdown`)
+- @everyone/@here physically cannot fire for non-owner users
+
+**Layer 2: Discord AutoMod** (blocks message BEFORE it's sent — no notification)
+- Messages with 7+ user/role mentions blocked entirely + 10min timeout
+- Created via `!lockdown`. Owner + bot exempt.
+
+**Layer 3: Bot Moderation Cog** (deletes + timeouts for anything that slips through)
+- @everyone/@here in message content: delete + 5min timeout
+- 7+ user mentions in one message: delete + 10min timeout
+- 4+ messages-with-mentions within 60s (rapid ping spam): delete + 10min timeout
+- 4+ messages within 8s (rate limit): delete + 10min timeout
+- 2+ duplicate messages within 60s: delete + 10min timeout
+- `!purge @user [minutes]`: delete user's messages (no time cap)
+- `!nuke [minutes]`: delete all spam patterns (no time cap)
+- Note: Discord API limits bulk delete to messages <14 days old
 
 ---
 
@@ -205,7 +227,7 @@ Score thresholds: linear 50 pts/rank for early tiers, then exponential (RuneScap
 📊 MEDIA & STATS -- #media-feed (RO), #leaderboard (RO), #rank-ups (RO), #achievements (RO)
 🎭 ENGAGEMENT -- #introductions, #confessions (RO), #confession-discussion, #hall-of-fame (RO)
 ⚔️ FACTIONS -- #faction-war (RO), #team-inferno, #team-frost, #team-venom, #team-volt
-🤖 BOT -- #bot-commands
+🤖 BOT -- #bot-commands (OWNER-ONLY, hidden from all other users)
 🌙 EXCLUSIVE -- #vip-lounge (Respected+), #after-hours (Veteran+, NO scoring)
 ```
 
@@ -276,7 +298,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Mega Events | `cogs/mega_events.py` | **Monthly mega events**: The Purge (no DR, 1.5x), Circle Games (2x social, 3x Quick Fire), Community Build (3x invites). One per month, 3-7 days. `active_event_multiplier` property for scoring. |
 | Time Capsules | `cogs/time_capsules.py` | `!timecapsule <message>` sealed for 90 days, then revealed via DM + #general announcement. Max 3 per user. `!capsules` to view active capsules. |
 | Keeper Personality | `cogs/keeper_personality.py` | **Ambient Keeper messages** 2-4x/day in #general. Contextual reactions to recent messages, cryptic observations, streak reminders. Makes bot feel alive at small scale. |
-| Moderation | `cogs/moderation.py` | **Anti-spam + admin tools.** Auto-deletes @everyone/@here from non-owner + 60s timeout. **Mass mention filter:** 5+ user pings = delete + 10min timeout. Rate limiter: 4+ msgs in 8s = delete + 10min timeout. Duplicate detector: 2+ similar msgs in 60s = delete + timeout. Scoring handler skips moderation-deleted messages. `!purge @user [minutes]` deletes user's msgs across all channels. `!nuke [minutes]` deletes all detected spam (including mass mentions). Owner-only. |
+| Moderation | `cogs/moderation.py` | **3-layer anti-spam.** (1) @everyone/@here: delete + 5min timeout. (2) Mass mentions: 7+ pings = delete + 10min timeout. (3) Rapid mention spam: 4+ mention-messages in 60s = delete + 10min timeout. (4) Rate limit: 4+ msgs in 8s = 10min timeout. (5) Duplicate: 2+ similar in 60s = timeout. Scoring handler skips moderation-deleted msgs. `!purge @user [min]` and `!nuke [min]` — no time cap. Owner-only. |
 
 ---
 
@@ -329,10 +351,11 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 ### Admin Commands
 | Command | Cog | Description |
 |---|---|---|
-| `!setup` | setup_server | Creates all channels, categories, 100 rank roles |
+| `!setup` | setup_server | Creates all channels, categories, 100 rank roles + runs lockdown |
+| `!lockdown` | setup_server | Strip mention_everyone from roles, hide #bot-commands, create AutoMod mention-spam rule |
 | `!postinfo` | info | Posts guide embeds to #info |
-| `!reset @user` | leaderboard | Reset a user's score |
-| `!setrank @user <tier>` | leaderboard | Set a user's rank |
+| `!reset @user` | leaderboard | Reset a user's score + strip rank roles + assign Rookie I |
+| `!setrank @user <tier>` | leaderboard | Set a user's rank + update Discord role to match |
 | `!recap` | weekly_recap | Manually trigger weekly recap |
 | `!debate start <topic>` | debates | Start a structured debate |
 | `!approve <id>` / `!reject <id>` | content_engine | Approve/reject UGC submissions |
@@ -340,8 +363,8 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!cleanup` | setup_server | Fix orphaned channels, remove duplicate categories |
 | `!purgeall` | setup_server | Delete ALL messages in ALL text channels (irreversible) |
 | `!metrics` | metrics | Show retention dashboard (DAU/MAU, D1/D7/D30 retention) |
-| `!purge @user [min]` | moderation | Delete all messages from a user in the last N minutes (default 30, max 120) |
-| `!nuke [min]` | moderation | Delete all detected spam across all channels in the last N minutes |
+| `!purge @user [min]` | moderation | Delete all messages from a user in the last N minutes (default 30, no cap) |
+| `!nuke [min]` | moderation | Delete all detected spam across all channels in the last N minutes (no cap) |
 
 ---
 
@@ -689,11 +712,21 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 - **Keeper personality:** 11 new ambient messages nudging users toward #info, !help, !rank, !daily, name colors.
 - **98 custom emojis uploaded:** 50 animated + 48 static Pepe emojis. 2 static slots remaining.
 
-**Audit Fix 9 (2026-04-03) — Mass-mention spam filter:**
-- **Spam incident:** User "employeeofthemonth" spammed mass-mentions (pinging every member individually) to bypass the @everyone filter.
-- **NEW: Mass-mention filter** — 5+ user mentions in a single message = auto-delete + 10min timeout. `!nuke` also catches mass-mention messages.
-- **Scoring handler cross-check** — scoring_handler now checks `Moderation.deleted_message_ids` and skips any message already deleted by moderation, preventing spammers from earning points on deleted messages.
-- **Config constants:** `MOD_MASS_MENTION_LIMIT = 5`, `MOD_MASS_MENTION_TIMEOUT = 600`.
+**Audit Fix 9 (2026-04-03) — Comprehensive moderation overhaul, 3-layer mention protection:**
+- **Spam incident:** User "employeeofthemonth" spammed mass-mentions (pinging every member individually) to bypass the @everyone filter. Key insight: deleting messages AFTER the fact doesn't stop Discord notifications — must prevent at the permission/AutoMod level.
+- **NEW: 3-layer mention protection:**
+  - **Layer 1 (Permissions):** `!lockdown` strips `mention_everyone` from all roles except owner's. Users physically cannot @everyone/@here.
+  - **Layer 2 (Discord AutoMod):** `!lockdown` creates AutoMod rule blocking messages with 7+ mentions BEFORE they're sent (no notification fires). 10min timeout. Owner + bot exempt.
+  - **Layer 3 (Bot moderation cog):** Mass mentions (7+), rapid mention spam (4+ mention-messages in 60s), rate limiting, duplicate detection. All with delete + timeout.
+- **Scoring handler cross-check** — scoring_handler now checks `Moderation.deleted_message_ids` and skips any message already deleted by moderation.
+- **NEW: `!lockdown` command** — Runs all 3 layers: strip mention perms, hide #bot-commands, create AutoMod rule. Also wired into `!setup`.
+- **#bot-commands hidden** — Only visible to bot owner + bot. Admin commands like `!reset @user` won't notify the target or be visible to other users.
+- **`!purge` and `!nuke` uncapped** — Removed 120-minute and 500-message-per-channel limits. Pass any number of minutes.
+- **`!reset` now updates roles** — Strips all rank roles and assigns Rookie I. Previously only updated DB, leaving stale colored roles.
+- **`!setrank` now updates roles** — Strips old rank role and assigns the new one to match.
+- **Bot re-invited with expanded permissions** — Added Manage Server (for AutoMod) and Moderate Members (for timeouts). New permissions value: `1099780188272`.
+- **Config constants:** `MOD_MASS_MENTION_LIMIT = 7`, `MOD_MASS_MENTION_TIMEOUT = 600`, `MOD_MENTION_SPAM_WINDOW = 60`, `MOD_MENTION_SPAM_COUNT = 4`.
+- **Tailscale fallback:** When off home LAN (cellular), use Tailscale IP `100.107.165.3` instead of `192.168.10.177`.
 
 ---
 
