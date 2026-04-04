@@ -33,7 +33,8 @@ A custom Discord bot called **"Keeper"** for a social server called **"The Circl
 - **Database:** SQLite via aiosqlite (file: `circle.db`)
 - **Hosting:** Raspberry Pi 5 (**SINGLE INSTANCE ONLY** — never run bot.py locally while Pi is running; same token = duplicate everything)
 - **Bot Token:** stored in `.env` (not committed)
-- **Total Cogs:** 49 defined, 46 active. Disabled: `streaks.py` (→ streaks_v2), `welcome.py` (→ onboarding_v2), `onboarding.py` (→ onboarding_v2), `smart_dm.py` (→ reengagement)
+- **Bot Owner ID:** `1170038287465971926` (jack_rosely) — all admin commands restricted to this user via `@commands.is_owner()`
+- **Total Cogs:** 50 defined, 47 active. Disabled: `streaks.py` (→ streaks_v2), `welcome.py` (→ onboarding_v2), `onboarding.py` (→ onboarding_v2), `smart_dm.py` (→ reengagement)
 - **Total DB Tables:** ~50
 
 ## Raspberry Pi Access
@@ -275,6 +276,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Mega Events | `cogs/mega_events.py` | **Monthly mega events**: The Purge (no DR, 1.5x), Circle Games (2x social, 3x Quick Fire), Community Build (3x invites). One per month, 3-7 days. `active_event_multiplier` property for scoring. |
 | Time Capsules | `cogs/time_capsules.py` | `!timecapsule <message>` sealed for 90 days, then revealed via DM + #general announcement. Max 3 per user. `!capsules` to view active capsules. |
 | Keeper Personality | `cogs/keeper_personality.py` | **Ambient Keeper messages** 2-4x/day in #general. Contextual reactions to recent messages, cryptic observations, streak reminders. Makes bot feel alive at small scale. |
+| Moderation | `cogs/moderation.py` | **Anti-spam + admin tools.** Auto-deletes @everyone/@here from non-owner + 60s timeout. Rate limiter: 7+ msgs in 10s = delete + 5min timeout. Duplicate detector: 4+ similar msgs in 30s = delete + timeout. `!purge @user [minutes]` deletes user's msgs across all channels. `!nuke [minutes]` deletes all detected spam. Owner-only. |
 
 ---
 
@@ -322,6 +324,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!oracle` | oracle | Today's Oracle prediction |
 | `!timecapsule <msg>` | time_capsules | Seal a message for 90 days |
 | `!capsules` | time_capsules | View your active time capsules |
+| `!dms` / `!dms off` / `!dms on` | onboarding_v2 | Toggle bot DMs on/off. Every DM also has a 🔕 button. |
 
 ### Admin Commands
 | Command | Cog | Description |
@@ -337,6 +340,8 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!cleanup` | setup_server | Fix orphaned channels, remove duplicate categories |
 | `!purgeall` | setup_server | Delete ALL messages in ALL text channels (irreversible) |
 | `!metrics` | metrics | Show retention dashboard (DAU/MAU, D1/D7/D30 retention) |
+| `!purge @user [min]` | moderation | Delete all messages from a user in the last N minutes (default 30, max 120) |
+| `!nuke [min]` | moderation | Delete all detected spam across all channels in the last N minutes |
 
 ---
 
@@ -673,6 +678,16 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 - **Debugging approach that worked:** Decoded Discord message snowflake IDs to timestamps, fetched message content via Discord REST API to compare embeds, checked `ps aux` on both Mac and Pi to find rogue processes.
 - **Dedup layers now in onboarding_v2:** (1) In-memory set for rapid Discord re-fires, (2) DB check via `get_onboarding_state()` for cross-restart persistence.
 - ~~**Healthcheck false warning:**~~ **FIXED** — Removed disabled cogs (Streaks, Welcome, Onboarding) from expected list. Added missing Phase 3 cogs (MegaEvents, TimeCapsules, KeeperPersonality). Now 23/23 green.
+
+**Audit Fix 8 (2026-04-03) — Spam incident, moderation system, admin lockdown:**
+- **Spam incident:** Two users (Beamer, BIG DAWG) spammed hundreds of "@everyone AAAAAAA" messages across #general, #memes, #dating farming points. 549 spam messages deleted. Both users' scores reset to 0.
+- **NEW: Moderation cog** (`cogs/moderation.py`) — Auto-deletes @everyone/@here from non-owner + 60s timeout. Rate limiter (7+ msgs/10s = delete + 5min timeout). Duplicate detector (4+ similar msgs/30s = delete + timeout). `!purge @user [min]` and `!nuke [min]` admin commands.
+- **Admin lockdown:** ALL admin commands switched from `has_permissions(administrator=True)` to `@commands.is_owner()`. Only `BOT_OWNER_ID` (1170038287465971926, jack_rosely) can run admin commands. No other users, even with Discord admin perms.
+- **DM opt-out:** Users can now `!dms off` or tap 🔕 button on any bot DM to stop all bot DMs. Persisted in `dm_optout` table.
+- **Season tier spam:** Announcements reduced to every 10th tier only. XP curve steepened (base 150*1.065^t).
+- **!postinfo idempotent:** Now purges existing bot messages before reposting.
+- **Keeper personality:** 11 new ambient messages nudging users toward #info, !help, !rank, !daily, name colors.
+- **98 custom emojis uploaded:** 50 animated + 48 static Pepe emojis. 2 static slots remaining.
 
 ---
 
