@@ -276,7 +276,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Mega Events | `cogs/mega_events.py` | **Monthly mega events**: The Purge (no DR, 1.5x), Circle Games (2x social, 3x Quick Fire), Community Build (3x invites). One per month, 3-7 days. `active_event_multiplier` property for scoring. |
 | Time Capsules | `cogs/time_capsules.py` | `!timecapsule <message>` sealed for 90 days, then revealed via DM + #general announcement. Max 3 per user. `!capsules` to view active capsules. |
 | Keeper Personality | `cogs/keeper_personality.py` | **Ambient Keeper messages** 2-4x/day in #general. Contextual reactions to recent messages, cryptic observations, streak reminders. Makes bot feel alive at small scale. |
-| Moderation | `cogs/moderation.py` | **Anti-spam + admin tools.** Auto-deletes @everyone/@here from non-owner + 60s timeout. Rate limiter: 7+ msgs in 10s = delete + 5min timeout. Duplicate detector: 4+ similar msgs in 30s = delete + timeout. `!purge @user [minutes]` deletes user's msgs across all channels. `!nuke [minutes]` deletes all detected spam. Owner-only. |
+| Moderation | `cogs/moderation.py` | **Anti-spam + admin tools.** Auto-deletes @everyone/@here from non-owner + 60s timeout. **Mass mention filter:** 5+ user pings = delete + 10min timeout. Rate limiter: 4+ msgs in 8s = delete + 10min timeout. Duplicate detector: 2+ similar msgs in 60s = delete + timeout. Scoring handler skips moderation-deleted messages. `!purge @user [minutes]` deletes user's msgs across all channels. `!nuke [minutes]` deletes all detected spam (including mass mentions). Owner-only. |
 
 ---
 
@@ -688,6 +688,12 @@ Variable rewards, daily wheel, loss aversion, streaks v2, social graph, circles,
 - **!postinfo idempotent:** Now purges existing bot messages before reposting.
 - **Keeper personality:** 11 new ambient messages nudging users toward #info, !help, !rank, !daily, name colors.
 - **98 custom emojis uploaded:** 50 animated + 48 static Pepe emojis. 2 static slots remaining.
+
+**Audit Fix 9 (2026-04-03) — Mass-mention spam filter:**
+- **Spam incident:** User "employeeofthemonth" spammed mass-mentions (pinging every member individually) to bypass the @everyone filter.
+- **NEW: Mass-mention filter** — 5+ user mentions in a single message = auto-delete + 10min timeout. `!nuke` also catches mass-mention messages.
+- **Scoring handler cross-check** — scoring_handler now checks `Moderation.deleted_message_ids` and skips any message already deleted by moderation, preventing spammers from earning points on deleted messages.
+- **Config constants:** `MOD_MASS_MENTION_LIMIT = 5`, `MOD_MASS_MENTION_TIMEOUT = 600`.
 
 ---
 
