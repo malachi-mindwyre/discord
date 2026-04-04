@@ -101,7 +101,7 @@ class SetupServer(commands.Cog):
         automod = await self._setup_automod_mention_spam(guild)
         await ctx.send(
             f"⚫ Stripped `mention_everyone` from {locked} roles. "
-            f"#bot-commands {'hidden (owner-only)' if bot_cmd else 'not found'}. "
+            f"#bot-commands/#keeper-logs {'hidden (owner-only)' if bot_cmd else 'not found'}. "
             f"AutoMod: {automod}"
         )
 
@@ -146,11 +146,7 @@ class SetupServer(commands.Cog):
         return modified
 
     async def _lockdown_bot_commands(self, guild: discord.Guild) -> bool:
-        """Make #bot-commands visible only to the bot owner + bot itself."""
-        channel = discord.utils.get(guild.text_channels, name="bot-commands")
-        if not channel:
-            return False
-
+        """Make #bot-commands and #keeper-logs visible only to the bot owner + bot itself."""
         owner = guild.get_member(BOT_OWNER_ID)
         overwrites = {
             # Hide from everyone
@@ -173,11 +169,17 @@ class SetupServer(commands.Cog):
                 send_messages=True,
             )
 
-        try:
-            await channel.edit(overwrites=overwrites, reason="Lockdown: owner-only bot-commands")
-            return True
-        except discord.Forbidden:
-            return False
+        locked_any = False
+        for ch_name in ("bot-commands", "keeper-logs"):
+            channel = discord.utils.get(guild.text_channels, name=ch_name)
+            if not channel:
+                continue
+            try:
+                await channel.edit(overwrites=overwrites, reason=f"Lockdown: owner-only {ch_name}")
+                locked_any = True
+            except discord.Forbidden:
+                pass
+        return locked_any
 
     async def _setup_automod_mention_spam(self, guild: discord.Guild) -> str:
         """Create/update AutoMod rule to block messages with too many mentions.
@@ -239,7 +241,7 @@ class SetupServer(commands.Cog):
 
         lines = ["⚫ **Lockdown complete.**"]
         lines.append(f"• Stripped `mention_everyone` from **{modified}** roles.")
-        lines.append(f"• #bot-commands {'hidden (owner-only)' if bot_cmd else 'not found'}.")
+        lines.append(f"• #bot-commands/#keeper-logs {'hidden (owner-only)' if bot_cmd else 'not found'}.")
         lines.append(f"• AutoMod mention spam: {automod}")
         await status.edit(content="\n".join(lines))
 

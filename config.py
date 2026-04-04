@@ -194,6 +194,7 @@ CHANNEL_STRUCTURE = {
     },
     "🤖 BOT": {
         "bot-commands": {"read_only": False, "topic": "Talk to Keeper here. !rank !top !stats !shop !profile !spin !help"},
+        "keeper-logs": {"read_only": False, "topic": "Keeper's private error & health logs. Owner-only."},
     },
     "🌙 EXCLUSIVE": {
         "vip-lounge": {"read_only": False, "topic": "Respected+ members only. The inner circle."},
@@ -204,8 +205,8 @@ CHANNEL_STRUCTURE = {
 # Channels excluded from scoring
 EXCLUDED_CHANNELS = {
     "welcome", "info", "rules", "announcements", "media-feed", "leaderboard",
-    "rank-ups", "bot-commands", "confessions", "hall-of-fame", "faction-war",
-    "after-hours",  # Veteran+ decompression zone — no scoring by design
+    "rank-ups", "bot-commands", "keeper-logs", "confessions", "hall-of-fame",
+    "faction-war", "after-hours",  # Veteran+ decompression zone — no scoring by design
 }
 
 # ─── Rank Group Definitions ────────────────────────────────────────────────
@@ -997,3 +998,12 @@ DISPLAY_TITLES = {
     "rank_legend":        {"emoji": "🟡", "title": "Living Legend"},
     "score_100000":       {"emoji": "📈", "title": "The Obsessed"},
 }
+
+# ─── Bot Logger / Observability ───────────────────────────────────────────
+LOGGER_CHANNEL = "keeper-logs"              # Private channel for all bot logs
+ERROR_SPIKE_THRESHOLD = 10                  # Errors in window to trigger spike alert
+ERROR_SPIKE_WINDOW = 300                    # Seconds (5 minutes)
+DAILY_SUMMARY_HOUR = 6                      # UTC hour for daily health summary (6 AM)
+LOG_BUFFER_FLUSH_INTERVAL = 5               # Seconds between buffer flushes
+LOG_MAX_BUFFER_SIZE = 10                    # Max buffered entries before force-flush
+LOG_HISTORY_MAX = 500                       # Max error entries kept in memory for !logs/!errors

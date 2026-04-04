@@ -37,7 +37,9 @@ bot = commands.Bot(
 )
 
 COG_EXTENSIONS = [
-    # ─── Moderation (load first) ────────────────────────────
+    # ─── Observability (load FIRST — catches errors from all other cogs) ──
+    "cogs.bot_logger",
+    # ─── Moderation (load early) ────────────────────────────
     "cogs.moderation",
     # ─── Phase 1 (Core) ──────────────────────────────────
     # "cogs.streaks",              # Superseded by streaks_v2
@@ -108,8 +110,9 @@ async def on_ready():
     )
     await bot.change_presence(activity=activity)
 
-    # Wait 15 seconds then check all background tasks
+    # Wait 15 seconds then check all background tasks (+ log crashes via bot_logger)
     await asyncio.sleep(15)
+    bot_logger = bot.get_cog("BotLogger")
     task_map = {
         "LossAversion": ["daily_decay_and_demotion", "streak_at_risk_check"],
         "ContentEngine": ["quick_fire_scheduler", "dead_zone_detector", "trending_scanner"],
@@ -137,6 +140,13 @@ async def on_ready():
                     if exc:
                         print(f"  ✗ Task {cog_name}.{task_name} CRASHED: {exc}")
                         traceback.print_exception(type(exc), exc, exc.__traceback__)
+                        if bot_logger:
+                            tb = "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+                            await bot_logger.log_error(
+                                "task",
+                                f"Task {cog_name}.{task_name} CRASHED on startup",
+                                tb[-1500:],
+                            )
                     else:
                         print(f"  ✗ Task {cog_name}.{task_name} not running (no exception captured)")
             else:
@@ -155,13 +165,22 @@ async def main():
     # Register persistent views (survive bot restarts)
     bot.add_view(DMOptOutView())
 
-    # Load all cogs
+    # Load all cogs — track results for bot_logger
+    cog_load_results = []
     for ext in COG_EXTENSIONS:
         try:
             await bot.load_extension(ext)
             print(f"  ✓ Loaded {ext}")
+            cog_load_results.append((ext, True, ""))
         except Exception as e:
             print(f"  ✗ Failed to load {ext}: {e}")
+            traceback.print_exc()
+            cog_load_results.append((ext, False, str(e)))
+
+    # Feed cog load results to bot_logger (if it loaded successfully)
+    bot_logger = bot.get_cog("BotLogger")
+    if bot_logger:
+        bot_logger.cog_load_results = cog_load_results
 
     # Start the bot
     await bot.start(DISCORD_TOKEN)

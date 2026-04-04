@@ -34,7 +34,7 @@ A custom Discord bot called **"Keeper"** for a social server called **"The Circl
 - **Hosting:** Raspberry Pi 5 (**SINGLE INSTANCE ONLY** — never run bot.py locally while Pi is running; same token = duplicate everything)
 - **Bot Token:** stored in `.env` (not committed)
 - **Bot Owner ID:** `1170038287465971926` (jack_rosely) — all admin commands restricted to this user via `@commands.is_owner()`
-- **Total Cogs:** 50 defined, 47 active. Disabled: `streaks.py` (→ streaks_v2), `welcome.py` (→ onboarding_v2), `onboarding.py` (→ onboarding_v2), `smart_dm.py` (→ reengagement)
+- **Total Cogs:** 51 defined, 48 active. Disabled: `streaks.py` (→ streaks_v2), `welcome.py` (→ onboarding_v2), `onboarding.py` (→ onboarding_v2), `smart_dm.py` (→ reengagement)
 - **Total DB Tables:** ~50
 
 ## Raspberry Pi Access
@@ -227,11 +227,11 @@ Score thresholds: linear 50 pts/rank for early tiers, then exponential (RuneScap
 📊 MEDIA & STATS -- #media-feed (RO), #leaderboard (RO), #rank-ups (RO), #achievements (RO)
 🎭 ENGAGEMENT -- #introductions, #confessions (RO), #confession-discussion, #hall-of-fame (RO)
 ⚔️ FACTIONS -- #faction-war (RO), #team-inferno, #team-frost, #team-venom, #team-volt
-🤖 BOT -- #bot-commands (OWNER-ONLY, hidden from all other users)
+🤖 BOT -- #bot-commands (OWNER-ONLY, hidden from all other users), #keeper-logs (OWNER-ONLY, error/health logs)
 🌙 EXCLUSIVE -- #vip-lounge (Respected+), #after-hours (Veteran+, NO scoring)
 ```
 
-Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderboard, rank-ups, achievements, bot-commands, confessions, hall-of-fame, faction-war, after-hours.
+Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderboard, rank-ups, achievements, bot-commands, keeper-logs, confessions, hall-of-fame, faction-war, after-hours.
 
 ---
 
@@ -276,7 +276,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Buddy System | `cogs/buddy_system.py` | Mentor pairing, 10-msg goal in 48h |
 | Daily Rewards | `cogs/daily_rewards.py` | Escalating login rewards, streak reset on miss |
 
-### Phase 3: Ultimate Engagement Engine (17 cogs)
+### Phase 3: Ultimate Engagement Engine (18 cogs)
 | Cog | File | Purpose |
 |---|---|---|
 | Onboarding v2 | `cogs/onboarding_v2.py` | **THE sole welcome/onboarding handler.** Posts #welcome embed, assigns Rookie I role, sends quest DM, runs 7-day pipeline. T+5s quest DM (4 quests with endowed progress — joining counts as #1), T+2hr progress, T+4hr streak anchor, T+24h check-in, T+48h momentum, T+72h milestone tease, Day 6 report card (positive framing), Day 7 graduation ceremony + Survivor badge + 100 Circles. **Fallback:** posts in #general if DMs disabled. **Two-layer dedup:** (1) in-memory set for rapid re-fires, (2) DB check via `onboarding_state` table for cross-restart persistence. |
@@ -299,6 +299,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Time Capsules | `cogs/time_capsules.py` | `!timecapsule <message>` sealed for 90 days, then revealed via DM + #general announcement. Max 3 per user. `!capsules` to view active capsules. |
 | Keeper Personality | `cogs/keeper_personality.py` | **Ambient Keeper messages** 2-4x/day in #general. Contextual reactions to recent messages, cryptic observations, streak reminders. Makes bot feel alive at small scale. |
 | Moderation | `cogs/moderation.py` | **3-layer anti-spam.** (1) @everyone/@here: delete + 5min timeout. (2) Mass mentions: 7+ pings = delete + 10min timeout. (3) Rapid mention spam: 4+ mention-messages in 60s = delete + 10min timeout. (4) Rate limit: 4+ msgs in 8s = 10min timeout. (5) Duplicate: 2+ similar in 60s = timeout. Scoring handler skips moderation-deleted msgs. `!purge @user [min]` and `!nuke [min]` — no time cap. Owner-only. |
+| Bot Logger | `cogs/bot_logger.py` | **Observability & error logging.** Loaded FIRST. Global `on_command_error` handler, event listener error catching, background task crash monitor (auto-restart), cog load failure alerts, daily health summary (6 AM UTC), error-rate spike detection (10 errors in 5 min), buffered posting to #keeper-logs. `!logs` and `!errors` admin commands. |
 
 ---
 
@@ -353,7 +354,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 |---|---|---|
 | `!admin` | leaderboard | List all admin commands in a single embed. Owner only. |
 | `!setup` | setup_server | Creates all channels, categories, 100 rank roles + runs lockdown |
-| `!lockdown` | setup_server | Strip mention_everyone from roles, hide #bot-commands, create AutoMod mention-spam rule |
+| `!lockdown` | setup_server | Strip mention_everyone from roles, hide #bot-commands/#keeper-logs, create AutoMod mention-spam rule |
 | `!postinfo` | info | Posts guide embeds to #info |
 | `!reset @user` | leaderboard | Reset a user's score + strip rank roles + assign Rookie I |
 | `!setrank @user <tier>` | leaderboard | Set a user's rank + update Discord role to match |
@@ -367,6 +368,8 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!fixroles` | leaderboard | Scan all members, ensure Discord role matches DB rank (fixes missing/stale roles) |
 | `!purge @user [min]` | moderation | Delete all messages from a user in the last N minutes (default 30, no cap) |
 | `!nuke [min]` | moderation | Delete all detected spam across all channels in the last N minutes (no cap) |
+| `!logs [N]` | bot_logger | Show last N error entries (default 10, max 50). Owner only. |
+| `!errors` | bot_logger | Show error frequency by category in current tracking period. Owner only. |
 
 ---
 
@@ -521,19 +524,51 @@ Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM (5x window)
 
 ---
 
+## OBSERVABILITY SYSTEM (Bot Logger)
+
+The `cogs/bot_logger.py` cog provides comprehensive error logging and health monitoring, posting to the private `#keeper-logs` channel (owner-only, hidden from all users).
+
+### Features
+1. **Global command error handler** (`on_command_error`) — catches ALL command exceptions. User-facing errors get clean messages; internal errors get "Something went wrong" + full traceback in #keeper-logs.
+2. **Event listener error handler** (`on_error`) — catches exceptions in `on_message`, `on_member_join`, etc.
+3. **Background task crash monitor** — checks all `@tasks.loop` tasks every 5 min. Posts crash details + auto-restarts.
+4. **Cog load failure alerts** — posts startup summary showing which cogs loaded/failed.
+5. **Daily health summary** (6 AM UTC) — uptime, error count by category, cog status, task status, DB health, memory usage.
+6. **Error spike detection** — if 10+ errors in 5 minutes, posts alert with most common error category.
+7. **Buffered posting** — batches rapid errors into single embeds to avoid Discord rate limits.
+8. **`!logs [N]`** — show last N errors (default 10, max 50). Owner only.
+9. **`!errors`** — show error frequency by category. Owner only.
+
+### Config Constants
+- `LOGGER_CHANNEL = "keeper-logs"` — target channel
+- `ERROR_SPIKE_THRESHOLD = 10` — errors to trigger spike alert
+- `ERROR_SPIKE_WINDOW = 300` — 5-minute window
+- `DAILY_SUMMARY_HOUR = 6` — UTC hour for daily summary
+- `LOG_BUFFER_FLUSH_INTERVAL = 5` — seconds between flushes
+- `LOG_MAX_BUFFER_SIZE = 10` — force-flush at this count
+- `LOG_HISTORY_MAX = 500` — max in-memory error history
+
+### Log Levels
+- **ERROR** (red embed) — command failures, task crashes, event errors
+- **WARNING** (yellow embed) — stopped tasks, non-critical issues
+- **INFO** (blue embed) — startup summaries, task restarts
+
+---
+
 ## FILE STRUCTURE
 ```
 discord/
-├── bot.py              -- Main entry, loads 47 extensions (46 active cogs + setup_server). 3 cogs disabled: streaks, welcome, onboarding
+├── bot.py              -- Main entry, loads 48 extensions (47 active cogs + setup_server). bot_logger loaded FIRST. 3 cogs disabled: streaks, welcome, onboarding
 ├── config.py           -- All constants (~950 lines), scoring weights, engagement params, display titles, keeper personality
 ├── database.py         -- SQLite schema (~56 tables) + async CRUD helpers + migrations
 ├── scoring.py          -- 6-layer scoring engine (pure logic, no Discord deps)
 ├── ranks.py            -- 100 rank definitions + helpers
 ├── setup_server.py     -- !setup cog (creates channels, roles)
-├── cogs/               -- 44 feature cogs
+├── cogs/               -- 45 feature cogs
 │   ├── __init__.py
 │   ├── achievements.py
 │   ├── auto_events.py
+│   ├── bot_logger.py       -- NEW: Observability, error logging, health summaries → #keeper-logs
 │   ├── buddy_system.py
 │   ├── circles.py          -- NEW: Friend groups
 │   ├── comeback.py
