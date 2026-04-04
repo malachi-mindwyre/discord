@@ -120,12 +120,17 @@ class SetupServer(commands.Cog):
         await ctx.send(embed=embed)
 
     async def _lockdown_mentions(self, guild: discord.Guild) -> int:
-        """Strip mention_everyone from all roles. Returns number of roles modified."""
+        """Strip mention_everyone from all roles (except owner's roles). Returns number of roles modified."""
         modified = 0
+        owner = guild.get_member(BOT_OWNER_ID)
+        owner_roles = set(owner.roles) if owner else set()
         for role in guild.roles:
             if role.is_bot_managed() or role.is_integration():
                 continue
             if role == guild.me.top_role:
+                continue
+            # Don't strip from the owner's roles
+            if role in owner_roles:
                 continue
             if role.permissions.mention_everyone:
                 new_perms = role.permissions
