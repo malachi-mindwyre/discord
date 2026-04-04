@@ -3,10 +3,12 @@ The Circle — Server Setup Cog
 Creates all channels, categories, roles, and permissions via !setup command.
 """
 
+from datetime import timedelta
+
 import discord
 from discord.ext import commands
 
-from config import CHANNEL_STRUCTURE, EXCLUDED_CHANNELS, GUILD_ID
+from config import BOT_OWNER_ID, CHANNEL_STRUCTURE, EXCLUDED_CHANNELS, GUILD_ID
 from ranks import ALL_RANKS
 
 
@@ -92,6 +94,17 @@ class SetupServer(commands.Cog):
 
         await ctx.send(f"⚫ {created_channels} chambers constructed.")
 
+        # ─── Lockdown Permissions ─────────────────────────────────────────
+        await ctx.send("⚫ Locking down permissions...")
+        locked = await self._lockdown_mentions(guild)
+        bot_cmd = await self._lockdown_bot_commands(guild)
+        automod = await self._setup_automod_mention_spam(guild)
+        await ctx.send(
+            f"⚫ Stripped `mention_everyone` from {locked} roles. "
+            f"#bot-commands {'hidden (owner-only)' if bot_cmd else 'not found'}. "
+            f"AutoMod: {automod}"
+        )
+
         # ─── Final Message ─────────────────────────────────────────────────
         embed = discord.Embed(
             title="⚫ THE CIRCLE IS COMPLETE",
@@ -105,6 +118,125 @@ class SetupServer(commands.Cog):
             color=0x1A1A2E,
         )
         await ctx.send(embed=embed)
+
+    async def _lockdown_mentions(self, guild: discord.Guild) -> int:
+        """Strip mention_everyone from all roles. Returns number of roles modified."""
+        modified = 0
+        for role in guild.roles:
+            if role.is_bot_managed() or role.is_integration():
+                continue
+            if role == guild.me.top_role:
+                continue
+            if role.permissions.mention_everyone:
+                new_perms = role.permissions
+                new_perms.update(mention_everyone=False)
+                try:
+                    await role.edit(
+                        permissions=new_perms,
+                        reason="Security lockdown: disable mention_everyone",
+                    )
+                    modified += 1
+                except discord.Forbidden:
+                    pass
+        return modified
+
+    async def _lockdown_bot_commands(self, guild: discord.Guild) -> bool:
+        """Make #bot-commands visible only to the bot owner + bot itself."""
+        channel = discord.utils.get(guild.text_channels, name="bot-commands")
+        if not channel:
+            return False
+
+        owner = guild.get_member(BOT_OWNER_ID)
+        overwrites = {
+            # Hide from everyone
+            guild.default_role: discord.PermissionOverwrite(
+                read_messages=False,
+                send_messages=False,
+            ),
+            # Bot can see and send
+            guild.me: discord.PermissionOverwrite(
+                read_messages=True,
+                send_messages=True,
+                embed_links=True,
+                manage_messages=True,
+            ),
+        }
+        # Owner can see and use
+        if owner:
+            overwrites[owner] = discord.PermissionOverwrite(
+                read_messages=True,
+                send_messages=True,
+            )
+
+        try:
+            await channel.edit(overwrites=overwrites, reason="Lockdown: owner-only bot-commands")
+            return True
+        except discord.Forbidden:
+            return False
+
+    async def _setup_automod_mention_spam(self, guild: discord.Guild) -> str:
+        """Create/update AutoMod rule to block messages with too many mentions.
+        This blocks BEFORE sending — no notification fires."""
+        rule_name = "Circle: Mention Spam Protection"
+
+        # Check for existing rule and delete it so we can recreate with current settings
+        try:
+            existing_rules = await guild.fetch_automod_rules()
+            for rule in existing_rules:
+                if rule.name == rule_name:
+                    await rule.delete(reason="Recreating with updated settings")
+        except discord.HTTPException:
+            pass
+
+        # Create the rule: block messages with 4+ user/role mentions, timeout 10 min
+        try:
+            owner = guild.get_member(BOT_OWNER_ID)
+            exempt_roles = [guild.me.top_role] if guild.me.top_role else []
+            # Also exempt the owner's highest role if they have one
+            if owner and owner.top_role and owner.top_role != guild.default_role:
+                exempt_roles.append(owner.top_role)
+
+            await guild.create_automod_rule(
+                name=rule_name,
+                event_type=discord.AutoModRuleEventType.message_send,
+                trigger=discord.AutoModTrigger(
+                    type=discord.AutoModRuleTriggerType.mention_spam,
+                    mention_limit=4,
+                ),
+                actions=[
+                    # Block the message with a custom warning
+                    discord.AutoModRuleAction(
+                        custom_message="🛑 Too many mentions. The Circle does not tolerate spam pings.",
+                    ),
+                    # Timeout the user for 10 minutes
+                    discord.AutoModRuleAction(duration=timedelta(minutes=10)),
+                ],
+                enabled=True,
+                exempt_roles=exempt_roles,
+                reason="Security lockdown: prevent mass-mention spam",
+            )
+            return "created (blocks 4+ mentions per message)"
+        except discord.HTTPException as e:
+            return f"failed: {e}"
+
+    @commands.command(name="lockdown")
+    @commands.is_owner()
+    async def lockdown(self, ctx: commands.Context):
+        """Lock down server permissions: strip @everyone pings, hide #bot-commands, enable AutoMod. Owner only."""
+        guild = ctx.guild
+        if not guild:
+            return
+        status = await ctx.send("⚫ **Locking down permissions...**")
+
+        modified = await self._lockdown_mentions(guild)
+        bot_cmd = await self._lockdown_bot_commands(guild)
+        automod = await self._setup_automod_mention_spam(guild)
+
+        lines = ["⚫ **Lockdown complete.**"]
+        lines.append(f"• Stripped `mention_everyone` from **{modified}** roles.")
+        lines.append(f"• #bot-commands {'hidden (owner-only)' if bot_cmd else 'not found'}.")
+        lines.append(f"• AutoMod mention spam: {automod}")
+        await status.edit(content="\n".join(lines))
 
     @commands.command(name="cleanup")
     @commands.is_owner()
