@@ -56,8 +56,16 @@ class Starboard(commands.Cog):
         if message.author.bot:
             return
 
-        # Count total unique reactions
-        total_reactions = sum(r.count for r in message.reactions)
+        # Count unique users who reacted (one user with 5 emojis = 1, not 5)
+        unique_reactors: set[int] = set()
+        for reaction in message.reactions:
+            try:
+                async for user in reaction.users():
+                    if not user.bot and user.id != message.author.id:
+                        unique_reactors.add(user.id)
+            except discord.HTTPException:
+                pass
+        total_reactions = len(unique_reactors)
 
         threshold = self._get_threshold(guild.member_count)
         if total_reactions < threshold:
@@ -117,7 +125,7 @@ class Starboard(commands.Cog):
         )
         embed.add_field(name="Author", value=message.author.mention, inline=True)
         embed.add_field(name="Channel", value=f"#{message.channel.name}", inline=True)
-        embed.add_field(name="Reactions", value=f"**{reaction_count}** total", inline=True)
+        embed.add_field(name="Reactions", value=f"**{reaction_count}** unique users", inline=True)
         embed.add_field(
             name="Jump to Message",
             value=f"[Click here]({message.jump_url})",
