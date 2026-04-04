@@ -15,7 +15,7 @@ from config import (
     KEEPER_HELP,
 )
 from database import get_top_users, get_user, get_or_create_user, get_today_top_user, get_top_inviters
-from ranks import RANK_BY_TIER, get_rank_for_score, get_next_rank, get_progress_to_next, make_progress_bar
+from ranks import ALL_RANKS, RANK_BY_TIER, get_rank_for_score, get_next_rank, get_progress_to_next, make_progress_bar
 
 
 class Leaderboard(commands.Cog):
