@@ -1009,7 +1009,7 @@ LOG_MAX_BUFFER_SIZE = 10                    # Max buffered entries before force-
 LOG_HISTORY_MAX = 500                       # Max error entries kept in memory for !logs/!errors
 
 # ─── Bump Reminders (Server Listing Sites) ───────────────────────────────
-BUMP_CHANNEL = "general"                    # Channel where bump reminders post
+BUMP_CHANNEL = "bot-commands"               # Channel where bump reminders post (hidden, owner-only)
 BUMP_ROLE_NAME = "Bumper"                   # Role to ping for bump reminders
 BUMP_REWARD_COINS = 25                      # Circles awarded per bump
 BUMP_STREAK_BONUS = 5                       # Extra coins per consecutive bump day
