@@ -201,7 +201,7 @@ class SetupServer(commands.Cog):
                 event_type=discord.AutoModRuleEventType.message_send,
                 trigger=discord.AutoModTrigger(
                     type=discord.AutoModRuleTriggerType.mention_spam,
-                    mention_limit=4,
+                    mention_limit=6,
                 ),
                 actions=[
                     # Block the message with a custom warning

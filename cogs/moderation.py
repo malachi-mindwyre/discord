@@ -25,6 +25,8 @@ from config import (
     MOD_EVERYONE_TIMEOUT_SECONDS,
     MOD_MASS_MENTION_LIMIT,
     MOD_MASS_MENTION_TIMEOUT,
+    MOD_MENTION_SPAM_WINDOW,
+    MOD_MENTION_SPAM_COUNT,
 )
 
 logger = logging.getLogger("circle.moderation")
@@ -44,6 +46,8 @@ class Moderation(commands.Cog):
         self._message_timestamps: dict[int, list[float]] = defaultdict(list)
         # {user_id: [(normalized_content, timestamp), ...]} for duplicate detection
         self._message_content: dict[int, list[tuple[str, float]]] = defaultdict(list)
+        # {user_id: [timestamp, ...]} for rapid mention-message tracking
+        self._mention_timestamps: dict[int, list[float]] = defaultdict(list)
         # Set of message IDs deleted by moderation (other cogs can check)
         self.deleted_message_ids: set[int] = set()
 
@@ -114,7 +118,42 @@ class Moderation(commands.Cog):
 
         now = message.created_at.timestamp()
 
-        # --- Check 3: Rate limiting (rapid-fire) ---
+        # --- Check 3: Rapid mention spam (separate messages with pings in quick succession) ---
+        if len(message.mentions) >= 1:
+            mt = self._mention_timestamps[message.author.id]
+            mt.append(now)
+            cutoff = now - MOD_MENTION_SPAM_WINDOW
+            self._mention_timestamps[message.author.id] = [t for t in mt if t > cutoff]
+            mt = self._mention_timestamps[message.author.id]
+
+            if len(mt) >= MOD_MENTION_SPAM_COUNT:
+                try:
+                    await message.delete()
+                    self.deleted_message_ids.add(message.id)
+                    logger.info(
+                        "Rapid mention spam from %s (%s): %d mention-messages in %ds",
+                        message.author, message.author.id, len(mt), MOD_MENTION_SPAM_WINDOW,
+                    )
+                except discord.Forbidden:
+                    pass
+
+                if len(mt) == MOD_MENTION_SPAM_COUNT:
+                    try:
+                        until = discord.utils.utcnow() + timedelta(seconds=MOD_MASS_MENTION_TIMEOUT)
+                        await message.author.timeout(until, reason="Spam: rapid mention spam")
+                    except discord.Forbidden:
+                        pass
+                    try:
+                        await message.channel.send(
+                            f"🛑 {message.author.mention} — too many pings too fast. "
+                            f"Timed out for {MOD_MASS_MENTION_TIMEOUT // 60} minutes.",
+                            delete_after=10,
+                        )
+                    except discord.HTTPException:
+                        pass
+                return
+
+        # --- Check 4: Rate limiting (rapid-fire) ---
         timestamps = self._message_timestamps[message.author.id]
         timestamps.append(now)
         # Clean old timestamps

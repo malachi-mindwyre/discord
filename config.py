@@ -22,8 +22,10 @@ MOD_SPAM_TIMEOUT_SECONDS = 600      # 10 min timeout for spammers
 MOD_DUPLICATE_WINDOW = 60           # Seconds to track duplicate content
 MOD_DUPLICATE_COUNT = 2             # Repeated similar messages before timeout
 MOD_EVERYONE_TIMEOUT_SECONDS = 300  # 5 min timeout for unauthorized @everyone
-MOD_MASS_MENTION_LIMIT = 5          # 5+ user mentions in one message = spam
+MOD_MASS_MENTION_LIMIT = 7          # 7+ user mentions in one message = spam (AutoMod blocks at 6, this is backup)
 MOD_MASS_MENTION_TIMEOUT = 600      # 10 min timeout for mass mentions
+MOD_MENTION_SPAM_WINDOW = 60        # Seconds to track mention messages
+MOD_MENTION_SPAM_COUNT = 4          # 4+ messages-with-mentions in window = spam
 
 # ─── Embed Colors ───────────────────────────────────────────────────────────
 EMBED_COLOR_PRIMARY = 0x1A1A2E      # Deep navy (sidebar)
