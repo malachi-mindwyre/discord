@@ -62,7 +62,7 @@ class HealthCheck(commands.Cog):
             print(f"✗ Health check failed to run: {e}")
 
     @commands.command(name="healthcheck", aliases=["hc", "health"])
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def healthcheck_cmd(self, ctx: commands.Context):
         """Run a comprehensive health check on all bot systems. Admin only."""
         msg = await ctx.send("⚫ **Running health check...**")

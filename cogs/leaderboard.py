@@ -240,7 +240,7 @@ class Leaderboard(commands.Cog):
     # ─── Admin Commands ────────────────────────────────────────────────────
 
     @commands.command(name="reset")
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def reset_cmd(self, ctx: commands.Context, member: discord.Member = None):
         """Reset a user's score. Admin only."""
         if not member:
@@ -251,7 +251,7 @@ class Leaderboard(commands.Cog):
         await ctx.send(f"⚫ {member.display_name}'s journey has been reset. The Circle forgets.")
 
     @commands.command(name="setrank")
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def setrank_cmd(self, ctx: commands.Context, member: discord.Member = None, tier: int = None):
         """Manually set a user's rank. Admin only."""
         if not member or not tier or tier < 1 or tier > 100:

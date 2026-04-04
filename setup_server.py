@@ -15,7 +15,7 @@ class SetupServer(commands.Cog):
         self.bot = bot
 
     @commands.command(name="setup")
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def setup(self, ctx: commands.Context):
         """Create all channels, categories, and 100 rank roles. Admin only."""
         guild = ctx.guild
@@ -107,7 +107,7 @@ class SetupServer(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(name="cleanup")
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def cleanup(self, ctx: commands.Context):
         """Fix channel structure: move orphan channels to correct categories, remove empty duplicate categories. Admin only."""
         guild = ctx.guild
@@ -196,7 +196,7 @@ class SetupServer(commands.Cog):
 
 
     @commands.command(name="purgeall")
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def purge_all_channels(self, ctx: commands.Context):
         """Delete ALL messages in ALL text channels. Admin only. Irreversible."""
         guild = ctx.guild

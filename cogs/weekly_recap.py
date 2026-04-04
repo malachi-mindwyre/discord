@@ -323,7 +323,7 @@ class WeeklyRecap(commands.Cog):
             await asyncio.sleep(wait_seconds)
 
     @commands.command(name="recap")
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def force_recap(self, ctx: commands.Context):
         """Force post a weekly recap now. Admin only."""
         stats = await get_weekly_stats()

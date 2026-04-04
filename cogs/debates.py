@@ -207,7 +207,7 @@ class Debates(commands.Cog):
             await ctx.send("No active debate here. Admins can start one with `!debate start <topic>`.")
 
     @debate_cmd.command(name="start")
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def debate_start(self, ctx: commands.Context, *, topic: str):
         """Admin only: Start a structured debate."""
         if ctx.channel.id in self.active_debates:

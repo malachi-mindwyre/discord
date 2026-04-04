@@ -786,7 +786,7 @@ class ContentEngine(commands.Cog):
     # ─── Admin: Approve / Reject ──────────────────────────────────────────
 
     @commands.command(name="approve")
-    @commands.has_permissions(manage_messages=True)
+    @commands.is_owner()
     async def approve_submission(self, ctx: commands.Context, sub_id: int):
         """Approve a user-generated content submission."""
         result = await _update_submission_status(sub_id, "approved", ctx.author.id)
@@ -807,7 +807,7 @@ class ContentEngine(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(name="reject")
-    @commands.has_permissions(manage_messages=True)
+    @commands.is_owner()
     async def reject_submission(self, ctx: commands.Context, sub_id: int):
         """Reject a user-generated content submission and refund coins."""
         result = await _update_submission_status(sub_id, "rejected", ctx.author.id)

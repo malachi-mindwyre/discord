@@ -37,7 +37,7 @@ class InviteReminders(commands.Cog):
         self.monthly_race_check.cancel()
 
     @commands.command(name="setinvite")
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def set_invite(self, ctx: commands.Context, link: str = None):
         """Set the server invite link used in reminders."""
         if not link:

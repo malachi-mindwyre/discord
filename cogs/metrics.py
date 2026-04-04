@@ -291,7 +291,7 @@ class Metrics(commands.Cog):
     # ── Admin Command ────────────────────────────────────────────────────
 
     @commands.command(name="metrics")
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def metrics_cmd(self, ctx: commands.Context):
         """Show retention metrics for the last 7 days."""
         async with aiosqlite.connect(DB_PATH) as db:

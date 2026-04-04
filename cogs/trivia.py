@@ -51,7 +51,7 @@ class Trivia(commands.Cog):
         await self.bot.wait_until_ready()
 
     @commands.command(name="trivia")
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def trivia_cmd(self, ctx: commands.Context, count: int = 5):
         """Start a trivia round. Admin only. Usage: !trivia [count]"""
         count = min(max(count, 1), len(TRIVIA_QUESTIONS))

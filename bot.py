@@ -10,7 +10,7 @@ import traceback
 import discord
 from discord.ext import commands, tasks
 
-from config import DISCORD_TOKEN, BOT_PREFIX, GUILD_ID
+from config import DISCORD_TOKEN, BOT_PREFIX, GUILD_ID, BOT_OWNER_ID
 from database import init_db
 
 # ─── Logging Setup ─────────────────────────────────────────────────────
@@ -28,9 +28,17 @@ intents.message_content = True
 intents.members = True
 intents.presences = True
 
-bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents, help_command=None)
+bot = commands.Bot(
+    command_prefix=BOT_PREFIX,
+    intents=intents,
+    help_command=None,
+    owner_id=BOT_OWNER_ID,
+    allowed_mentions=discord.AllowedMentions(everyone=False, roles=False),
+)
 
 COG_EXTENSIONS = [
+    # ─── Moderation (load first) ────────────────────────────
+    "cogs.moderation",
     # ─── Phase 1 (Core) ──────────────────────────────────
     # "cogs.streaks",              # Superseded by streaks_v2
     "cogs.achievements",

@@ -15,7 +15,7 @@ class Info(commands.Cog):
         self.bot = bot
 
     @commands.command(name="postinfo")
-    @commands.has_permissions(administrator=True)
+    @commands.is_owner()
     async def post_info(self, ctx: commands.Context):
         """Post all info guide embeds to #info. Admin only."""
         info_channel = discord.utils.get(ctx.guild.text_channels, name="info")
