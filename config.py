@@ -386,8 +386,7 @@ CONFESSION_BLOCKED_PATTERNS = [
 STARBOARD_CHANNEL = "hall-of-fame"
 STARBOARD_EMOJI = "⭐"
 STARBOARD_THRESHOLDS = {              # member_count -> required reactions
-    0: 3,
-    50: 5,
+    0: 5,
     200: 10,
     1000: 15,
 }

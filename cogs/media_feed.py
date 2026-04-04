@@ -36,6 +36,9 @@ class MediaFeed(commands.Cog):
         # Dedup: track recently mirrored message IDs to prevent double posts
         self._recent_mirrors: set[int] = set()
         self._recent_mirrors_limit = 100
+        # Map original message ID -> mirror message ID in #media-feed
+        self._mirror_map: dict[int, int] = {}
+        self._mirror_map_limit = 500
 
     def _has_media(self, message: discord.Message) -> bool:
         """Check if a message contains any media content."""
@@ -145,9 +148,64 @@ class MediaFeed(commands.Cog):
         )
 
         try:
-            await feed_channel.send(embed=embed)
+            mirror_msg = await feed_channel.send(embed=embed)
+            # Track mapping so we can delete mirror if original is deleted
+            self._mirror_map[message.id] = mirror_msg.id
+            if len(self._mirror_map) > self._mirror_map_limit:
+                # Remove oldest entries
+                oldest_keys = list(self._mirror_map.keys())[: len(self._mirror_map) - self._mirror_map_limit]
+                for k in oldest_keys:
+                    del self._mirror_map[k]
         except discord.HTTPException:
             pass
+
+    @commands.Cog.listener()
+    async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
+        """When an original message is deleted, delete its mirror in #media-feed."""
+        mirror_id = self._mirror_map.pop(payload.message_id, None)
+        if not mirror_id:
+            return
+
+        guild = self.bot.get_guild(payload.guild_id) if payload.guild_id else None
+        if not guild:
+            return
+
+        feed_channel = discord.utils.get(guild.text_channels, name="media-feed")
+        if not feed_channel:
+            return
+
+        try:
+            mirror_msg = await feed_channel.fetch_message(mirror_id)
+            await mirror_msg.delete()
+        except discord.HTTPException:
+            pass
+
+    @commands.Cog.listener()
+    async def on_raw_bulk_message_delete(self, payload: discord.RawBulkMessageDeleteEvent):
+        """When messages are bulk-deleted (e.g. !purge), delete their mirrors in #media-feed."""
+        guild = self.bot.get_guild(payload.guild_id) if payload.guild_id else None
+        if not guild:
+            return
+
+        mirror_ids = []
+        for msg_id in payload.message_ids:
+            mirror_id = self._mirror_map.pop(msg_id, None)
+            if mirror_id:
+                mirror_ids.append(mirror_id)
+
+        if not mirror_ids:
+            return
+
+        feed_channel = discord.utils.get(guild.text_channels, name="media-feed")
+        if not feed_channel:
+            return
+
+        for mirror_id in mirror_ids:
+            try:
+                mirror_msg = await feed_channel.fetch_message(mirror_id)
+                await mirror_msg.delete()
+            except discord.HTTPException:
+                pass
 
 
 async def setup(bot: commands.Bot):
