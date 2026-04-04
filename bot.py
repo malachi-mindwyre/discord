@@ -94,6 +94,7 @@ COG_EXTENSIONS = [
     "cogs.mega_events",            # Monthly mega events (The Purge, Circle Games, etc.)
     "cogs.time_capsules",          # Time capsule system (!timecapsule, !capsules)
     "cogs.keeper_personality",     # Keeper ambient personality messages
+    "cogs.bump_reminder",          # Automated bump reminders for Disboard, Top.gg, Discord.me
 ]
 
 

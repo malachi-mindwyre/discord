@@ -604,6 +604,14 @@ async def init_db():
                 created_at TEXT NOT NULL
             );
 
+            -- Bump Reminders (server listing sites)
+            CREATE TABLE IF NOT EXISTS bump_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                platform TEXT NOT NULL,
+                bumped_at TEXT NOT NULL
+            );
+
             -- ─── Indexes ─────────────────────────────────────────────────
 
             CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id);
@@ -628,6 +636,7 @@ async def init_db():
             CREATE INDEX IF NOT EXISTS idx_kudos_receiver ON kudos(receiver_id);
             CREATE INDEX IF NOT EXISTS idx_season_progress ON season_progress(user_id);
             CREATE INDEX IF NOT EXISTS idx_active_boosts ON active_boosts(user_id, expires_at);
+            CREATE INDEX IF NOT EXISTS idx_bump_log_platform ON bump_log(platform, bumped_at);
         """)
 
     # ── Schema Migrations (safe to run repeatedly) ──────────────────────────

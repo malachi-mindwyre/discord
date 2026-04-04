@@ -1007,3 +1007,21 @@ DAILY_SUMMARY_HOUR = 6                      # UTC hour for daily health summary 
 LOG_BUFFER_FLUSH_INTERVAL = 5               # Seconds between buffer flushes
 LOG_MAX_BUFFER_SIZE = 10                    # Max buffered entries before force-flush
 LOG_HISTORY_MAX = 500                       # Max error entries kept in memory for !logs/!errors
+
+# ─── Bump Reminders (Server Listing Sites) ───────────────────────────────
+BUMP_CHANNEL = "general"                    # Channel where bump reminders post
+BUMP_ROLE_NAME = "Bumper"                   # Role to ping for bump reminders
+BUMP_REWARD_COINS = 25                      # Circles awarded per bump
+BUMP_STREAK_BONUS = 5                       # Extra coins per consecutive bump day
+
+# Platform cooldowns (seconds)
+DISBOARD_COOLDOWN = 7200                    # 2 hours
+TOPGG_COOLDOWN = 43200                      # 12 hours
+DISCORDME_COOLDOWN = 21600                  # 6 hours
+
+# Disboard bot ID (for detecting successful bumps)
+DISBOARD_BOT_ID = 302050872383242240
+
+# Listing URLs
+TOPGG_VOTE_URL = "https://top.gg/servers/1489120401098276896/vote"
+DISCORDME_BUMP_URL = "https://discord.me/dashboard/servers/1489120401098276896/bump"

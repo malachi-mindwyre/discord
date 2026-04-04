@@ -1,7 +1,7 @@
 # The Circle — Discord Bot Project
 
 ## What This Is
-A custom Discord bot called **"Keeper"** for a social server called **"The Circle"**. Built in Python (discord.py) with SQLite, deployed on a Raspberry Pi 5. Keeper is a scientifically-designed engagement machine with a 6-layer scoring engine, 100-tier rank progression, 49 feature cogs (46 active), variable reward psychology, social graph engineering, seasonal battle passes, and multi-dimensional anti-churn systems. ~20,000 lines of code.
+A custom Discord bot called **"Keeper"** for a social server called **"The Circle"**. Built in Python (discord.py) with SQLite, deployed on a Raspberry Pi 5. Keeper is a scientifically-designed engagement machine with a 6-layer scoring engine, 100-tier rank progression, 50 feature cogs (47 active), variable reward psychology, social graph engineering, seasonal battle passes, and multi-dimensional anti-churn systems. ~20,000 lines of code.
 
 **Target audience:** Mixed 18-35 demographic. Dark luxury branding. Gamified social community.
 
@@ -34,7 +34,7 @@ A custom Discord bot called **"Keeper"** for a social server called **"The Circl
 - **Hosting:** Raspberry Pi 5 (**SINGLE INSTANCE ONLY** — never run bot.py locally while Pi is running; same token = duplicate everything)
 - **Bot Token:** stored in `.env` (not committed)
 - **Bot Owner ID:** `1170038287465971926` (jack_rosely) — all admin commands restricted to this user via `@commands.is_owner()`
-- **Total Cogs:** 51 defined, 48 active. Disabled: `streaks.py` (→ streaks_v2), `welcome.py` (→ onboarding_v2), `onboarding.py` (→ onboarding_v2), `smart_dm.py` (→ reengagement)
+- **Total Cogs:** 52 defined, 49 active. Disabled: `streaks.py` (→ streaks_v2), `welcome.py` (→ onboarding_v2), `onboarding.py` (→ onboarding_v2), `smart_dm.py` (→ reengagement)
 - **Total DB Tables:** ~50
 
 ## Raspberry Pi Access
@@ -298,6 +298,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | Mega Events | `cogs/mega_events.py` | **Monthly mega events**: The Purge (no DR, 1.5x), Circle Games (2x social, 3x Quick Fire), Community Build (3x invites). One per month, 3-7 days. `active_event_multiplier` property for scoring. |
 | Time Capsules | `cogs/time_capsules.py` | `!timecapsule <message>` sealed for 90 days, then revealed via DM + #general announcement. Max 3 per user. `!capsules` to view active capsules. |
 | Keeper Personality | `cogs/keeper_personality.py` | **Ambient Keeper messages** 2-4x/day in #general. Contextual reactions to recent messages, cryptic observations, streak reminders. Makes bot feel alive at small scale. |
+| Bump Reminder | `cogs/bump_reminder.py` | **Automated bump reminders** for Disboard (2h), Top.gg (12h), Discord.me (6h). Detects Disboard bot success response. Confirm buttons for web-based bumps. Rewards bumpers with Circles + streak bonus. `!bumps` leaderboard, `!bumpstatus` cooldown checker. |
 | Moderation | `cogs/moderation.py` | **3-layer anti-spam.** (1) @everyone/@here: delete + 5min timeout. (2) Mass mentions: 7+ pings = delete + 10min timeout. (3) Rapid mention spam: 4+ mention-messages in 60s = delete + 10min timeout. (4) Rate limit: 4+ msgs in 8s = 10min timeout. (5) Duplicate: 2+ similar in 60s = timeout. Scoring handler skips moderation-deleted msgs. `!purge @user [min]` and `!nuke [min]` — no time cap. Owner-only. |
 | Bot Logger | `cogs/bot_logger.py` | **Observability & error logging.** Loaded FIRST. Global `on_command_error` handler, event listener error catching, background task crash monitor (auto-restart), cog load failure alerts, daily health summary (6 AM UTC), error-rate spike detection (10 errors in 5 min), buffered posting to #keeper-logs. `!logs` and `!errors` admin commands. |
 
@@ -347,6 +348,8 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!oracle` | oracle | Today's Oracle prediction |
 | `!timecapsule <msg>` | time_capsules | Seal a message for 90 days |
 | `!capsules` | time_capsules | View your active time capsules |
+| `!bumps` | bump_reminder | Bump leaderboard (last 30 days) |
+| `!bumpstatus` / `!bs` | bump_reminder | Check cooldown status for all listing platforms |
 | `!dms` / `!dms off` / `!dms on` | onboarding_v2 | Toggle bot DMs on/off. Every DM also has a 🔕 button. |
 
 ### Admin Commands
@@ -370,6 +373,7 @@ Excluded from scoring: welcome, info, rules, announcements, media-feed, leaderbo
 | `!nuke [min]` | moderation | Delete all detected spam across all channels in the last N minutes (no cap) |
 | `!logs [N]` | bot_logger | Show last N error entries (default 10, max 50). Owner only. |
 | `!errors` | bot_logger | Show error frequency by category in current tracking period. Owner only. |
+| `!forcebump` | bump_reminder | Manually trigger bump reminders for all platforms. Owner only. |
 
 ---
 
@@ -520,6 +524,8 @@ Day 1 server callout -> Day 2 DM -> Day 3 DM -> Day 5 DM -> Day 7 DM (5x window)
 
 **Audit Fix 2:** dm_coordinator, mega_events, time_capsules
 
+**Growth:** bump_log
+
 **Audit Fix 4 (2026-04-02):** social_streak_cache, coin_transfers
 
 ---
@@ -569,6 +575,7 @@ discord/
 │   ├── achievements.py
 │   ├── auto_events.py
 │   ├── bot_logger.py       -- NEW: Observability, error logging, health summaries → #keeper-logs
+│   ├── bump_reminder.py     -- NEW: Automated bump reminders for Disboard/Top.gg/Discord.me
 │   ├── buddy_system.py
 │   ├── circles.py          -- NEW: Friend groups
 │   ├── comeback.py
