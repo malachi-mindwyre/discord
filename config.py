@@ -16,12 +16,12 @@ BOT_NAME = "Keeper"
 BOT_OWNER_ID = 1170038287465971926  # jack_rosely — only user who can run admin commands
 
 # ─── Moderation ───────────────────────────────────────────────────────────
-MOD_SPAM_RATE_LIMIT = 7             # Messages in window triggers timeout
-MOD_SPAM_RATE_WINDOW = 10           # Seconds for rate limit window
-MOD_SPAM_TIMEOUT_SECONDS = 300      # 5 min timeout for spammers
-MOD_DUPLICATE_WINDOW = 30           # Seconds to track duplicate content
-MOD_DUPLICATE_COUNT = 4             # Repeated similar messages before timeout
-MOD_EVERYONE_TIMEOUT_SECONDS = 60   # Timeout for unauthorized @everyone
+MOD_SPAM_RATE_LIMIT = 4             # Messages in window triggers timeout
+MOD_SPAM_RATE_WINDOW = 8            # Seconds for rate limit window
+MOD_SPAM_TIMEOUT_SECONDS = 600      # 10 min timeout for spammers
+MOD_DUPLICATE_WINDOW = 60           # Seconds to track duplicate content
+MOD_DUPLICATE_COUNT = 2             # Repeated similar messages before timeout
+MOD_EVERYONE_TIMEOUT_SECONDS = 300  # 5 min timeout for unauthorized @everyone
 
 # ─── Embed Colors ───────────────────────────────────────────────────────────
 EMBED_COLOR_PRIMARY = 0x1A1A2E      # Deep navy (sidebar)
