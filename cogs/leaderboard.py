@@ -242,12 +242,26 @@ class Leaderboard(commands.Cog):
     @commands.command(name="reset")
     @commands.is_owner()
     async def reset_cmd(self, ctx: commands.Context, member: discord.Member = None):
-        """Reset a user's score. Admin only."""
+        """Reset a user's score, rank role, and assign Rookie I. Admin only."""
         if not member:
             await ctx.send("⚫ Usage: `!reset @user`")
             return
         from database import reset_user
         await reset_user(member.id)
+
+        # Remove all rank roles and assign Rookie I
+        rank_role_names = {r.name for r in ALL_RANKS}
+        roles_to_remove = [r for r in member.roles if r.name in rank_role_names]
+        rookie_role = discord.utils.get(ctx.guild.roles, name="Rookie I")
+
+        try:
+            if roles_to_remove:
+                await member.remove_roles(*roles_to_remove, reason="Score reset")
+            if rookie_role and rookie_role not in member.roles:
+                await member.add_roles(rookie_role, reason="Score reset — back to Rookie I")
+        except discord.Forbidden:
+            await ctx.send("⚠️ Missing permissions to update roles.")
+
         await ctx.send(f"⚫ {member.display_name}'s journey has been reset. The Circle forgets.")
 
     @commands.command(name="setrank")
@@ -265,6 +279,20 @@ class Leaderboard(commands.Cog):
 
         from database import set_user_score
         await set_user_score(member.id, float(rank.threshold), tier)
+
+        # Update Discord roles to match
+        rank_role_names = {r.name for r in ALL_RANKS}
+        roles_to_remove = [r for r in member.roles if r.name in rank_role_names]
+        new_role = discord.utils.get(ctx.guild.roles, name=rank.name)
+
+        try:
+            if roles_to_remove:
+                await member.remove_roles(*roles_to_remove, reason=f"Rank set to {rank.name}")
+            if new_role and new_role not in member.roles:
+                await member.add_roles(new_role, reason=f"Rank set to {rank.name}")
+        except discord.Forbidden:
+            await ctx.send("⚠️ Missing permissions to update roles.")
+
         await ctx.send(f"⚫ {member.display_name} has been placed at **{rank.name}** by decree.")
 
 
